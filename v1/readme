@@ -1,0 +1,14 @@
+v1 is the helpss-branched version of mantipython.
+
+The version history of mantipython looks something like:
+v0: a long time ago, was rather unstructured, a lot of assumptions about
+  the source model. Functional but not object oriented.
+  The git commit history for this version is in the helpss repository, not
+  the mantipython repository.
+
+v1: object-oriented rewrite of v0, more similar to the structure of Kevin's
+  manticore (Greybody, Dust, etc.). This is the first version in the
+  dedicated mantipython repository.
+
+v2: will replace v1, can be found in the mantipython repository as v1/*.py
+  while under development. The goal is to parallelize this.
