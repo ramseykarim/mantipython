@@ -1,0 +1,5 @@
+v2 should be the parallelized version of v1
+v2 should also include PACS 70 and 100 support
+
+v2 will lack the MCMC and 3D mayavi plotting (at first, at least)
+The focus will be on fitting images, exactly as manticore does.
