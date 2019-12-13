@@ -5,7 +5,12 @@ import os, sys
 import multiprocessing
 
 size = 3000
-X = np.random.random((size, size))
+memmap = False
+if memmap:
+    np.random.random((size, size)).tofile('data.dat')
+    X = np.memmap('data.dat', dtype=np.float, mode='r', shape=(size, size))
+else:
+    X = np.random.random((size, size))
 result = np.ctypeslib.as_ctypes(np.zeros((size, size)))
 shared_array = multiprocessing.RawArray(result._type_, result)
 
@@ -35,3 +40,5 @@ result = np.ctypeslib.as_array(shared_array)
 t1 = datetime.datetime.now()
 print(f"TIME:  {(t1-t0).total_seconds()*1000} ms")
 print(np.array_equal(X, result))
+if memmap:
+    os.remove('data.dat')
