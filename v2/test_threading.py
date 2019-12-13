@@ -1,79 +1,37 @@
-import threading
-
-"""
-Learning the threading package
-
-The test case will be:
-Draw data from 5 large, same-shape arrays and process it, filling in a
-results array
-Needs to access several global variables
-"""
-
+import itertools
 import numpy as np
-import matplotlib.pyplot as plt
+import os, sys
 
-dsize = 1000
-target = np.full(dsize, np.nan)
+import multiprocessing
 
-target_dicts = []
-lock = threading.Lock()
+size = 3000
+X = np.random.random((size, size))
+result = np.ctypeslib.as_ctypes(np.zeros((size, size)))
+shared_array = multiprocessing.RawArray(result._type_, result)
 
-def func(thread_index, number_of_threads):
-    source = [np.arange(dsize)[:, np.newaxis] for i in range(5)]
-    support_1 = np.arange(100000)[np.newaxis, :]
-    support_2 = [i+1 for i in range(5)]
-    support_3 = 2.5
-    block_size = dsize//number_of_threads
-    end_idx = min(block_size*(thread_index+1), dsize)
-    if thread_index == number_of_threads - 1:
-        end_idx = dsize
-    target_indices = np.array(range(block_size*thread_index, end_idx))
-    # target_indices = range(thread_index, dsize, number_of_threads)
-    thread_dict = np.full(len(target_indices), np.nan)
-    lock.acquire()
-    target_dicts.append((target_indices, thread_dict))
-    lock.release()
-    for meta_i, i in enumerate(target_indices):
-        total = np.sum([np.sum(x[i]*support_1/np.sqrt(support_1+x[i]+1))*y for x, y in zip(source, support_2)])
-        total *= support_3
-        # target[i] = thread_index
-        thread_dict[meta_i] = thread_index
-    lock.acquire()
-    target[(target_indices,)] = thread_dict
-    lock.release()
-    print(f"{thread_index} done!")
 
+
+block_size = 250
+
+def fill_subsquare(ll):
+    ll_i, ll_j = ll
+    tmp = np.ctypeslib.as_array(shared_array)
+    coord_pairs_to_fill = itertools.product(range(ll_i, ll_i+block_size), range(ll_j, ll_j+block_size))
+    for i, j in coord_pairs_to_fill:
+        tmp[i, j] = X[i, j]
+
+window_idxs = itertools.product(range(0, size, block_size), range(0, size, block_size))
 import datetime
+t0 = datetime.datetime.now()
 
-def no_parallel():
-    t0 = datetime.datetime.now()
-    func(0, 1)
-    t1 = datetime.datetime.now()
-    print(f"TIME ({dsize}):  {(t1-t0).total_seconds()*1000} ms")
-    print("worked" if not np.any(np.isnan(target)) else "didn't work")
-    plt.plot(target, '.')
-    plt.show()
+# for coords in window_idxs:
+#     fill_subsquare(coords)
 
+p = multiprocessing.Pool()
+for thing in p.imap_unordered(fill_subsquare, window_idxs, chunksize=25):
+    pass
 
-def simple_parallel():
-    n_threads = 6
-    threads = []
-    t0 = datetime.datetime.now()
-    for t_idx in range(n_threads):
-        t = threading.Thread(target=func, args=(t_idx, n_threads))
-        threads.append(t)
-        print(f"{t.name} ({t_idx}) starting!")
-        t.start()
-    for t_idx, t in enumerate(threads):
-        t.join()
-        print(f"{t.name} ({t_idx}) joined!")
-
-    t1 = datetime.datetime.now()
-    print(f"TIME ({dsize}):  {(t1-t0).total_seconds()*1000} ms")
-    print("worked" if not np.any(np.isnan(target)) else "didn't work")
-    plt.plot(target, '.')
-    plt.show()
-
-
-# no_parallel()
-simple_parallel()
+result = np.ctypeslib.as_array(shared_array)
+t1 = datetime.datetime.now()
+print(f"TIME:  {(t1-t0).total_seconds()*1000} ms")
+print(np.array_equal(X, result))
