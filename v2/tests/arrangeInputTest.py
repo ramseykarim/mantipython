@@ -1,3 +1,4 @@
+import os, sys
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -35,13 +36,13 @@ def confirm_data_exists():
         plt.title(wavelens[i])
     plt.show()
 
-# np.memmap('data.dat', dtype=np.float, mode='r', shape=(size, size))
+f = np.memmap('data.dat', dtype=np.float, mode='w+', shape=data.shape)
 
 """
 for cache size, do:
     sudo lshw -C memory
+    It's 256 kiB for L1
 """
 
 if __name__ == "__main__":
-    print(data._type_)
     print(data.shape)

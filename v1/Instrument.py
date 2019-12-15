@@ -20,6 +20,8 @@ spire_stub = lambda x: "Herschel_SPIRE.P"+x+"W_ext.dat"
 kevin_bp_fn = lambda b: "{}_fromManticore.dat".format(b)
 bandpass_files_kevin = {
     # Copied these from manticore
+	"PACS70um": kevin_bp_fn("PACS70um"),
+	"PACS100um": kevin_bp_fn("PACS100um"),
 	"PACS160um": kevin_bp_fn("PACS160um"),
 	"SPIRE250um": kevin_bp_fn("SPIRE250um"),
 	"SPIRE350um": kevin_bp_fn("SPIRE350um"),
@@ -41,6 +43,8 @@ bandpass_centers = {
 	# "SPIRE250um": cst.c/(2471245.1*1e-10),
 	# "SPIRE350um": cst.c/(3467180.4*1e-10),
 	# "SPIRE500um": cst.c/(4961067.7*1e-10),
+	"PACS70um": cst.c/(70*1e-6),
+	"PACS100um": cst.c/(100*1e-6),
 	"PACS160um": cst.c/(160*1e-6),
 	"SPIRE250um": cst.c/(250*1e-6),
 	"SPIRE350um": cst.c/(350*1e-6),

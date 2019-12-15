@@ -1,0 +1,7 @@
+v3 is v1 but cleaner, just a nice clean rewrite
+v3 does not attempt multiprocessing, it leaves all that to numpy/scipy
+it seems that attempting multiprocessing while using these functions
+makes things difficult, so I will not try that for now
+
+v3 supports 70/100 micron PACS as well. v3 focuses on single-component, so
+for now, does not support multicomponent
