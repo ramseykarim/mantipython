@@ -1,6 +1,7 @@
 import numpy as np
-from mpy_utils import cst
 from scipy.interpolate import UnivariateSpline
+
+from .mpy_utils import cst
 
 """
 Dust

@@ -34,7 +34,7 @@ class Greybody:
             nu = (nu,)
         if not isinstance(nu, np.ndarray):
             nu = np.array(nu)
-        cross_section = self.dust(nu) * H2mass * self.N
+        tau = self.dust(nu) * H2mass * self.N
         source = B(nu, self.T)
         # returns a nu-sized array
         return source * (1 - np.exp(-tau))
@@ -44,5 +44,5 @@ class Greybody:
         return f"<Greybody:{s}>"
 
     def __str__(self):
-        s = "{:.1f}".format(self.T))
+        s = "{:.1f}".format(self.T)
         return f"gb({s})"
