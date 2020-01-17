@@ -17,9 +17,9 @@ meters_micron = 1e6
 f_hz_meters = lambda hz: cst.c / hz
 # so for NU_hz = frequency in hertz
 # LAMBDA_micron = f_hz_meters(NU_hz) * meters_micron
-# and NU_hz = f_hz_meters( LAMBDA_micron / meters_micron )
+# and NU_hz = f_hz_meters(LAMBDA_micron) * meters_micron
+# Same function can be used.
 f_hz_micron = lambda hz: f_hz_meters(hz) * meters_micron
-wl_micron_hz = lambda um: f_hz_meters(um / meters_micron)
 
 H_WL = [70, 100, 160, 250, 350, 500]
 

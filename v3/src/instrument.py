@@ -62,15 +62,10 @@ class Instrument:
         self.center = bandpass_center(band_wavelength)
         if 'SPIRE' in self.name:
             self.response_array *= beam_size(band_wavelength, self.freq_array)
-
-        self.response = UnivariateSpline(self.freq_array,
-            self.response_array, s=0)
-
-        self.freq_limits = (np.min(self.freq_array), np.max(self.freq_array))
         self.filter_width = self.calculate_width()
 
     def integrate_response(self, f):
-        # f is a function of frequency
+        # f is a function of frequency in Hz
         # f will be integrated over filter response
         f_response_array = self.response_array * f(self.freq_array)
         return np.trapz(f_response_array, x=self.freq_array)
@@ -101,6 +96,8 @@ def beam_size(wl, nu):
     beam0 = SPIRE_Omegaeff[wl]
     return beam0 * (nu / nu0)**SPIRE_gamma
 
+def get_instrument(wavelenghts):
+    return [Instrument(wl) for wl in wavelenghts]
 
-def get_Herschel():
-    return [Instrument(wl) for wl in H_WL]
+def get_all_Herschel():
+    return get_instrument(H_WL)

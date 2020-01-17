@@ -10,15 +10,30 @@ Implements a RADIATE function that returns flux density at argument frequencies
 Needs a dust model (Dust) as input
 """
 
+MJysr = 1e20
+
 def B(nu, T):
     # make sure:
     # >> nu [FREQUENCY] in HERTZ
     # >> T [TEMPERATURE] in KELVIN
-    exponential = np.exp(cst.h * nu / (cst.k * T)) - 1
+    expm1 = np.exp(cst.h * nu / (cst.k * T)) - 1
     out_front = 2 * cst.h * nu**3 / cst.c**2
-    total_value = out_front / exponential
-    # CONVERT to MJy/sr
-    return total_value * 1e20
+    total_value = out_front / expm1
+    # CONVERT from SI/sr to MJy/sr (1e26 / 1e6)
+    return total_value * MJysr
+
+
+def dB_dT(nu, T):
+    # same rules as above
+    # first derivative of B wrt T
+    # see pg 135 of my notebook
+    hv = cst.h * nu
+    expm1 = np.exp(hv / (cst.k * T)) - 1
+    out_front = hv * nu / (cst.c * T)
+    out_front = (2/cst.k) * (out_front**2) * (expm1+1)
+    total_value = out_front / (expm1**2)
+    return total_value * MJysr
+
 
 class Greybody:
     """
@@ -26,7 +41,7 @@ class Greybody:
     """
     def __init__(self, temperature, column_density, dust_model):
         self.T = temperature
-        self.N = column_density
+        self.N = 10**column_density # arg as LOG10
         self.dust = dust_model
 
     def radiate(self, nu):
