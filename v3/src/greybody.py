@@ -1,6 +1,6 @@
 import numpy as np
 
-from .mpy_utils import cst, H2mass
+from .mpy_utils import cst
 
 """
 Greybody
@@ -39,9 +39,9 @@ class Greybody:
     """
     Single component Greybody
     """
-    def __init__(self, temperature, column_density, dust_model):
+    def __init__(self, temperature, tau160, dust_model):
         self.T = temperature
-        self.N = 10**column_density # arg as LOG10
+        self.tau160 = 10**tau160 # arg as LOG10
         self.dust = dust_model
 
     def radiate(self, nu):
@@ -49,13 +49,13 @@ class Greybody:
             nu = (nu,)
         if not isinstance(nu, np.ndarray):
             nu = np.array(nu)
-        tau = self.dust(nu) * H2mass * self.N
+        tau = self.dust(nu) * self.tau160
         source = B(nu, self.T)
         # returns a nu-sized array
         return source * (1 - np.exp(-tau))
 
     def __repr__(self):
-        s = "({:.1f}K/{:.1E}/{:s})".format(self.T, self.N, str(self.dust))
+        s = "({:.1f}K/{:.1E}/{:s})".format(self.T, self.tau160, str(self.dust))
         return f"<Greybody:{s}>"
 
     def __str__(self):

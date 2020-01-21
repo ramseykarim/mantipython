@@ -21,6 +21,15 @@ def dustTest():
     plt.ylabel("Kappa (cm2/g)")
     plt.show()
 
+def tauTest():
+    beta2 = dust.TauOpacity(2)
+    freqs = np.linspace(mpy_utils.f_hz_micron(600), mpy_utils.f_hz_micron(50), 200, dtype=np.float)
+    plt.plot(mpy_utils.f_hz_micron(freqs), beta2(freqs))
+    plt.title("Dust opacity for beta = 2")
+    plt.xlabel("Wavelength (micron)")
+    plt.ylabel("Kappa (cm2/g)")
+    plt.show()
+
 def greybodyTest():
     beta2 = dust.Dust(beta=2.0)
     gb = greybody.Greybody(15, 1e22, beta2)
@@ -101,9 +110,9 @@ def instrumentColorCorrectionTest2():
 
 
 if __name__ == "__main__":
-    # dustTest()
+    dustTest()
     # greybodyTest()
     # instrumentTest()
-    instrumentFilterTest()
-    instrumentColorCorrectionTest1()
-    instrumentColorCorrectionTest2()
+    # instrumentFilterTest()
+    # instrumentColorCorrectionTest1()
+    # instrumentColorCorrectionTest2()

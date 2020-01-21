@@ -4,3 +4,4 @@ __pycache__/
 *.fits
 *.pkl
 *.log
+./v3/src/computer_config.py

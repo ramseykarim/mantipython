@@ -6,20 +6,64 @@ from .mpy_utils import cst
 """
 Dust
 Author: Ramsey Karim
-Represents a dust opacity model.
-Implements a KAPPA function that returns opacity (cm2/g) at
-    argument frequencies.
-Dust object is also callable as KAPPA
+Various ways to represent dust opacity
 """
 
-k0_default = 0.1 # Standard in literature
-nu0_default = 1000*1e9 # Traditional default is 1000 GHz
-micron_meters = 1e-6
 
+# Constants that ONLY AFFECT DUST
+# (Kevin's values are found in solve.cc and manticore.h)
+
+# mass of H2 molecule in grams
+# NIST: https://webbook.nist.gov/cgi/inchi/InChI%3D1S/H
+H_mass_amu = 1.00794
+H2mass = 2.75 * (cst.m_u * 1e3) # kg->g
+#### UNSURE WHERE 2.75 COMES FROM BUT I ASKED KEVIN (1/20/20)
+
+
+k0_default = 0.1 # Standard in literature
+nu0_default = 1000*1e9 # Hz; Traditional default is 1000 GHz
+micron_meters = 1e-6 # microns * micron_meters = meters
+nu0_160 = cst.c / (160 * micron_meters) # frequency in Hz
+
+
+# Much simpler opacity equation. Power law slope only,
+#   normalization dealt with in Greybody
+# Can be instantiated and called same as Dust
+class TauOpacity:
+
+    def __init__(self, beta):
+        # beta unitless
+        # nu0 is fixed at 160micron
+        self.beta = beta
+        self._short = "beta={:.1f}".format(beta)
+        self._text = "<TauOpac:{:s}>".format(self._short)
+
+    def tau(self, nu):
+        # nu in Hz
+        return (nu / nu0_160)**self.beta
+
+    def __call__(self, x):
+        return self.tau(x)
+
+    def __repr__(self):
+        return self._text
+
+    def __str__(self):
+        return self._short
+
+
+
+# Formal dust, in kappa (cm2/g)
+# This will still work with Greybody (1/20/20)
+# The Greybody.t160 parameter will effectively be column density N(H2)
 class Dust:
 
     def __init__(self, *args, **kwargs):
         """
+        Represents a dust opacity model.
+        Implements a KAPPA function that returns opacity (cm2/g) at
+            argument frequencies.
+        Dust object is also callable as KAPPA
         Can be constructed with:
             k0, nu0, beta as floats; this creates a power law
             an Nx2 array; the first column is assumed to be frequencies
@@ -77,7 +121,8 @@ class Dust:
         self.kappa = init_kappa(powerlaw, spline, table_limits)
 
     def __call__(self, x):
-        return self.kappa(x)
+        # Now applies the H2mass to the result of kappa (1/20/20)
+        return self.kappa(x) * H2mass
 
     def __repr__(self):
         return self._text

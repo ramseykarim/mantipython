@@ -1,15 +1,6 @@
 import numpy as np
 import scipy.constants as cst
 
-# Constants
-
-# Kevin's values
-cst.c = 2.99792458e8
-H2mass = 1.6737237e-24 * 2.75 # g
-
-
-# scipy value
-# H2mass = 2.75 * cst.m_p * 1e3 * 1.001  # g (mass of H2 molecule in grams)
 
 BINS = 32
 
