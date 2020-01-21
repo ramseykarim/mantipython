@@ -14,7 +14,7 @@ Test the fit routine
 
 # Directory with actual RCW 49 data
 # data_dir = "/home/ramsey/Documents/Research/Feedback/ancillary_data/herschel/"
-data_dir = "/n/sgraraid/filaments/data/TEST4/pacs70_cal_test/RCW49/processed/1342255009/"
+data_dir = "/sgraraid/filaments/data/TEST4/pacs70_cal_test/RCW49/processed/1342255009/"
 data_fns = {
     70: "PACS70um-image-remapped-conv-plus000102.fits",
     160: "PACS160um-image-remapped-conv-plus000343.fits",
@@ -32,7 +32,22 @@ err_fns = {
 mask = fits.getdata(data_dir+"dim_region_mask.fits").astype(bool)
 wavelens = [70, 160, 250, 350, 500]
 
-LOG_NAME = "./log2.log"
+# CUTOUTS
+width = 80//2
+i1, j1 = 550, 280
+i2, j2 = i1, j1+(width*2)
+i3, j3 = i1-(width*2), j1+(width*2)
+i4, j4 = i1-(width*2), j1
+def make_cutout(i, j):
+    return (slice(i-width, i+width), slice(j-width, j+width))
+cutout1 = make_cutout(i1, j1)
+cutout2 = make_cutout(i2, j2)
+cutout3 = make_cutout(i3, j3)
+cutout4 = make_cutout(i4, j4)
+
+CUTOUT = cutout4
+NAME = "RCW49large_2p_beta2.0_freshcal_TILE4.pkl"
+LOG_NAME = "./log4.log"
 # use this to run nicely
 # { python -m v3.tests.fitTest 2>&1; } 1>>log2.log &
 
@@ -54,16 +69,19 @@ imgs, errs = [], []
 width = 8//2
 for wl in wavelens:
     img = fits.getdata(data_dir+data_fns[wl])
-    i, j = img.shape
-    i2, j2 = i//2, j//2
-    i2, j2 = 175, 535
-    cutout = (slice(i2-width, i2+width), slice(j2-width, j2+width))
-    imgs.append(img)
+    # i, j = img.shape
+    # i2, j2 = i//2, j//2
+    # i2, j2 = 175, 535
+    # CUTOUT = (slice(i2-width, i2+width), slice(j2-width, j2+width))
+    imgs.append(img[CUTOUT])
     err = fits.getdata(data_dir+err_fns[wl])
-    if wl == 70 or wl == 160:
-        err[:] = 1e10
-    errs.append(err)
-# mask = mask[cutout]
+    # if wl == 70 or wl == 160:
+    #     err[:] = 1e10
+    errs.append(err[CUTOUT])
+mask = mask[CUTOUT]
+
+mask = None # NO MASK!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
 print("Cutout shape:", imgs[0].shape)
 
 t0 = datetime.datetime.now()
@@ -81,7 +99,7 @@ with open(LOG_NAME, 'a') as f:
 
 print('done')
 savename = "/home/rkarim/Research/Feedback/ancillary_data/herschel/"
-savename = savename + "RCW49large_2p_3b.pkl"
+savename = savename + NAME
 with open(savename, 'wb') as f:
     # Pickle the 'data' dictionary using the highest protocol available.
     pickle.dump(result, f)
