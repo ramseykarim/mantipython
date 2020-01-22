@@ -16,8 +16,8 @@ Test the fit routine
 # data_dir = "/home/ramsey/Documents/Research/Feedback/ancillary_data/herschel/"
 data_dir = "/sgraraid/filaments/data/TEST4/pacs70_cal_test/RCW49/processed/1342255009/"
 data_fns = {
-    70: "PACS70um-image-remapped-conv-plus000102.fits",
-    160: "PACS160um-image-remapped-conv-plus000343.fits",
+    70: "PACS70um-image-remapped-conv.fits", # -plus000102
+    160: "PACS160um-image-remapped-conv.fits", # -plus000343
     250: "SPIRE250um-image-remapped-conv.fits",
     350: "SPIRE350um-image-remapped-conv.fits",
     500: "SPIRE500um-image-remapped-conv.fits",
@@ -46,20 +46,20 @@ cutout3 = make_cutout(i3, j3)
 cutout4 = make_cutout(i4, j4)
 
 CUTOUT = cutout4
-NAME = "RCW49large_2p_beta2.0_freshcal_TILE4.pkl"
-LOG_NAME = "./log4.log"
+NAME = "RCW49large_3p_nocal_TILE4.pkl"
+LOG_NAME = "./log34.log"
 # use this to run nicely
 # { python -m v3.tests.fitTest 2>&1; } 1>>log2.log &
 
-param_names = ('T', 'tau')
+param_names = ('T', 'tau', 'beta')
 initial_guesses = [fit.standard_x0[param_name] for param_name in param_names]
 bounds = [list(fit.standard_bounds[param_name]) for param_name in param_names]
-# bounds[2][1] = 3.0
-bounds[0][1] = 35
-dust = TauOpacity(2.0)
+bounds[2][1] = 3.0
+# bounds[0][1] = 35
+# dust = TauOpacity(2.0)
 def src_fn(x):
     # x = [T, tau]
-    return Greybody(x[0], x[1], dust)
+    return Greybody(x[0], x[1], TauOpacity(x[2]))
 
 def log_fn(text):
     with open(LOG_NAME, 'a') as f:
