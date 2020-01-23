@@ -8,7 +8,7 @@ __author__ = "Ramsey Karim"
 # Standard guesses for T, N, tau, beta
 # N, tau are log10
 standard_x0 = {'T': 15, 'N': 22, 'tau': -4, 'beta': 2}
-standard_bounds = {'T': (0, None), 'N': (18, 25), 'tau': (-7, 0), 'beta': (0, 2.5)}
+standard_bounds = {'T': (0, None), 'N': (18, 25), 'tau': (-7, 0), 'beta': (0, 3)}
 
 def gen_goodness_of_fit_f(src_fn, dof):
     def goodness_of_fit_f(x, obs, err, instr):
