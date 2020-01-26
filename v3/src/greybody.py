@@ -49,6 +49,8 @@ class Greybody:
             nu = (nu,)
         if not isinstance(nu, np.ndarray):
             nu = np.array(nu)
+        # Tau can still "act like" column density, if
+        #   Dust is used instead of TauOpacity
         tau = self.dust(nu) * self.tau160
         source = B(nu, self.T)
         # returns a nu-sized array

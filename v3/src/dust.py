@@ -16,8 +16,10 @@ Various ways to represent dust opacity
 # mass of H2 molecule in grams
 # NIST: https://webbook.nist.gov/cgi/inchi/InChI%3D1S/H
 H_mass_amu = 1.00794
-H2mass = 2.75 * (cst.m_u * 1e3) # kg->g
-#### UNSURE WHERE 2.75 COMES FROM BUT I ASKED KEVIN (1/20/20)
+H2mass = 2.75 * (cst.m_u * H_mass_amu * 1e3) # kg->g
+# I asked Kevin where 2.75 comes from (1/20/20):
+# "standard" metallicity-corrected conversion we adopted for the N(H2) maps
+# an empirical factor supposed to correspond to observations of these regions
 
 
 k0_default = 0.1 # Standard in literature

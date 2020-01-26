@@ -18,7 +18,7 @@ def dustTest():
     plt.plot(mpy_utils.f_hz_micron(freqs), beta2(freqs))
     plt.title("Dust opacity for beta = 2")
     plt.xlabel("Wavelength (micron)")
-    plt.ylabel("Kappa (cm2/g)")
+    plt.ylabel("Kappa (cm2/g) * m_H2 (g)")
     plt.show()
 
 def tauTest():
@@ -27,8 +27,25 @@ def tauTest():
     plt.plot(mpy_utils.f_hz_micron(freqs), beta2(freqs))
     plt.title("Dust opacity for beta = 2")
     plt.xlabel("Wavelength (micron)")
-    plt.ylabel("Kappa (cm2/g)")
+    plt.ylabel("Optical depth (tau)")
     plt.show()
+
+def dusttauTest():
+    kappa = dust.Dust(beta=2.0, k0=0.05625, nu0=750*1e9)
+    N1Av = 1.1e21
+    tau = dust.TauOpacity(2.0)
+    tau160 = kappa(dust.nu0_160)*N1Av
+    freqs = np.linspace(mpy_utils.f_hz_micron(600), mpy_utils.f_hz_micron(50), 200, dtype=np.float)
+    plt.plot(mpy_utils.f_hz_micron(freqs), kappa(freqs)*N1Av, label='Kappa')
+    plt.plot(mpy_utils.f_hz_micron(freqs), tau(freqs)*tau160, label='Tau')
+    plt.plot(mpy_utils.f_hz_micron(freqs), tau(freqs)*tau160/(kappa(freqs)*N1Av), label='Ratio')
+    plt.title("Dust opacity for beta = 2")
+    plt.xlabel("Wavelength (micron)")
+    plt.ylabel("Optical depth")
+    plt.xscale('log'), plt.yscale('log')
+    plt.legend()
+    plt.show()
+
 
 def greybodyTest():
     beta2 = dust.Dust(beta=2.0)
@@ -110,7 +127,7 @@ def instrumentColorCorrectionTest2():
 
 
 if __name__ == "__main__":
-    dustTest()
+    dusttauTest()
     # greybodyTest()
     # instrumentTest()
     # instrumentFilterTest()
