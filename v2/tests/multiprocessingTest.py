@@ -4,13 +4,25 @@ import os, sys
 
 import multiprocessing
 
+"""
+Wrote this around Dec 13 2019 and returning to it on January 29 2020
+to see if I can still salvage useful bits of multiprocessing
+
+Commenting my way through this script to remind myself what I did
+"""
+__author__ = "Ramsey Karim"
+
+# One side length, so size**2 pixels total
 size = 3000
+# Whether or not to use memmap, which will put this thing on disk
 memmap = False
 if memmap:
     np.random.random((size, size)).tofile('data.dat')
+    # mode='r' is open existing file for read only
     X = np.memmap('data.dat', dtype=np.float, mode='r', shape=(size, size))
 else:
     X = np.random.random((size, size))
+# Set up ctypes / RawArray for multiproc???? Why???
 result = np.ctypeslib.as_ctypes(np.zeros((size, size)))
 shared_array = multiprocessing.RawArray(result._type_, result)
 
@@ -32,6 +44,7 @@ t0 = datetime.datetime.now()
 # for coords in window_idxs:
 #     fill_subsquare(coords)
 
+# What the hell is going on here
 p = multiprocessing.Pool()
 for thing in p.imap_unordered(fill_subsquare, window_idxs, chunksize=25):
     pass
