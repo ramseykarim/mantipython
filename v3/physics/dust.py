@@ -44,6 +44,9 @@ class TauOpacity:
         # nu in Hz
         return (nu / nu0_160)**self.beta
 
+    def dtau_dbeta_helper(self, nu):
+        return np.log(nu / nu0_160)
+
     def __call__(self, x):
         return self.tau(x)
 

@@ -1,10 +1,10 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-from ..src import mpy_utils
-from ..src import dust
-from ..src import greybody
-from ..src import instrument
+from ..physics import mpy_utils
+from ..physics import dust
+from ..physics import greybody
+from ..physics import instrument
 
 cst = mpy_utils.cst
 
@@ -39,22 +39,36 @@ def dusttauTest():
     plt.plot(mpy_utils.f_hz_micron(freqs), kappa(freqs)*N1Av, label='Kappa')
     plt.plot(mpy_utils.f_hz_micron(freqs), tau(freqs)*tau160, label='Tau')
     plt.plot(mpy_utils.f_hz_micron(freqs), tau(freqs)*tau160/(kappa(freqs)*N1Av), label='Ratio')
-    plt.title("Dust opacity for beta = 2")
+    plt.title("Dust opacity for $\\beta$ = 2")
     plt.xlabel("Wavelength (micron)")
     plt.ylabel("Optical depth")
     plt.xscale('log'), plt.yscale('log')
     plt.legend()
     plt.show()
 
-
 def greybodyTest():
-    beta2 = dust.Dust(beta=2.0)
-    gb = greybody.Greybody(15, 1e22, beta2)
-    freqs = np.linspace(mpy_utils.f_hz_micron(600), mpy_utils.f_hz_micron(50), 200, dtype=np.float)
+    beta2 = dust.TauOpacity(2.0)
+    gb = greybody.Greybody(15, -2, beta2)
+    freqs = np.linspace(mpy_utils.f_hz_micron(600), mpy_utils.f_hz_micron(50), 200)
     plt.plot(mpy_utils.f_hz_micron(freqs), gb.radiate(freqs))
-    plt.title("Greybody at T=15K, N(H2)=1e22 cm2, beta=2 dust")
+    plt.title("Greybody at T=15K, $\\tau_{160}$=0.01, $\\beta$=2 dust")
     plt.xlabel("Wavelength (micron)")
     plt.ylabel("Flux (MJy/sr)")
+    plt.show()
+
+def jacobianTest():
+    beta2 = dust.TauOpacity(2.0)
+    gb = greybody.Greybody(15, -2, beta2, p=3)
+    freqs = np.linspace(mpy_utils.f_hz_micron(600), mpy_utils.f_hz_micron(50), 200, dtype=np.float64)
+    wl = mpy_utils.f_hz_micron(freqs)
+    jacs = gb.dradiate(freqs)
+    labels = ['X = T', 'X = $\\tau_{160}$', 'X = $\\beta$']
+    for i in range(3):
+        plt.plot(wl, jacs[i], label=labels[i])
+    plt.legend(shadow=True)
+    plt.title("Greybody at T=15K, $\\tau_{160}$=0.01, $\\beta$=2 dust")
+    plt.xlabel("Wavelength (micron)")
+    plt.ylabel("$\\partial$Flux / $\\partial$X (MJy/sr / [X])")
     plt.show()
 
 def instrumentTest():
@@ -74,6 +88,7 @@ def instrumentFilterTest():
     center_micron = 1e6*cst.c/detector.center
     width_micron = 1e6*detector.filter_width*cst.c/(detector.center**2)
     width_hz = detector.filter_width/1e11
+    # TODO: FIND SOURCES IN DOCUMENTATION FOR THESE
     assert round(center_micron, 1) == round(160.0, 1)
     assert round(width_micron, 1) == round(30.2, 1)
     assert round(width_hz, 2) == round(3.54, 2)
@@ -124,12 +139,16 @@ def instrumentColorCorrectionTest2():
         assert err_ccf < 0.01
     print("(CCF2) Deviations less than 1%")
 
-
+def derivativeGOFTest():
+    src1 = greybody.Greybody(14, -2, dust.TauOpacity(2.0))
+    herschel = instrument.get_all_Herschel()
+    obs = [d.detect(src1) for d in herschel]
+    err = [0.05*o for o in obs]
+    src2 = greybody.Greybody(14.0, -2.00, dust.TauOpacity(1.90))
+    jac = [2*(d.detect(src2.radiate) - o)*d.detect(src2.dradiate)/(e*e) for d, o, e in zip(herschel, obs, err)]
+    print(type(jac), len(jac), len(jac[0]))
+    jac = np.sum(jac, axis=0)
+    print(jac)
 
 if __name__ == "__main__":
-    dusttauTest()
-    # greybodyTest()
-    # instrumentTest()
-    # instrumentFilterTest()
-    # instrumentColorCorrectionTest1()
-    # instrumentColorCorrectionTest2()
+    derivativeGOFTest()

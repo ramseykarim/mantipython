@@ -3,14 +3,19 @@ import pickle
 import datetime
 import sys
 
-from .. import fit
-from ..src.greybody import Greybody
-from ..src.dust import TauOpacity
-from ..src.instrument import get_instrument
+from ..solve import solve_map
+from ..physics.greybody import Greybody
+from ..physics.dust import TauOpacity
+from ..physics.instrument import get_instrument
 
 """
-Test the fit routine
+Test the fit routine fit_full_image in (formerly) fit.py
+
+Update (1/28/20): this has mostly been used as the "official fitting routine"
+Since I actually want to test a rewrite of the fitting routine, now in
+solve_map.py, I am probably going to retire this file.
 """
+__author__ = "Ramsey Karim"
 
 # Directory with actual RCW 49 data
 # data_dir = "/home/ramsey/Documents/Research/Feedback/ancillary_data/herschel/"
@@ -87,7 +92,7 @@ t0 = datetime.datetime.now()
 with open(LOG_NAME, 'a') as f:
     f.write(f"Cutout shape: {imgs[0].shape}\n")
     f.write(f"started at {t0}\n")
-result = fit.fit_full_image(imgs, errs, get_instrument(wavelens), src_fn,
+result = solve_map.fit_full_image(imgs, errs, get_instrument(wavelens), src_fn,
     initial_guesses, bounds, mask=mask,
     chisq=True, log_func=log_fn)
 t1 = datetime.datetime.now()

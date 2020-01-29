@@ -4,10 +4,10 @@ from astropy.io import fits
 from astropy.nddata.utils import Cutout2D
 from astropy.wcs import WCS
 
-from .. import fit
-from ..src.greybody import Greybody
-from ..src.dust import TauOpacity
-from ..src.instrument import get_instrument
+from ..solve import solve_map
+from ..physics.greybody import Greybody
+from ..physics.dust import TauOpacity
+from ..physics.instrument import get_instrument
 
 """
 Test a FITS-saving wrapper for the the fit routine.
@@ -18,7 +18,9 @@ integrate bash shell script into this pipeline. then python script cleans up aft
 whole thing must thus be called from bash script
 
 need to figure out how to run 4 things at the same time and then wait for all of them to be done before continuing
+Update (1/28/20): can do something like ~$ sleep 2 & sleep 2 & sleep 2 & ; wait
 """
+__author__ = "Ramsey Karim"
 
 data_dir = "/n/sgraraid/filaments/data/TEST4/pacs70_cal_test/RCW49/processed/1342255009_reproc350/"
 data_fns = {
@@ -75,4 +77,5 @@ print("center", imgs[0].input_position_cutout, imgs[0].input_position_original)
 
 """
 Finish the FITS stuff tomorrow :) (rkarim, 1/21/20)
+hah (rkarim, 1/28/20)
 """

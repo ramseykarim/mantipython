@@ -24,6 +24,14 @@ def valid_wavelength(func_to_decorate):
     return decorated_function
 
 
+def arg_as_array(x):
+    if not hasattr(x, "__iter__"):
+        x = (x,)
+    if not isinstance(x, np.ndarray):
+        x = np.array(x)
+    return x
+
+
 @valid_wavelength
 def H_stub(wl):
     if wl < 200:

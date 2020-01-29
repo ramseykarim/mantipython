@@ -67,18 +67,19 @@ class Instrument:
     def integrate_response(self, f):
         # f is a function of frequency in Hz
         # f will be integrated over filter response
+        # If f(nu) returns >1D array, frequency must be the last (fastest) axis
         f_response_array = self.response_array * f(self.freq_array)
         return np.trapz(f_response_array, x=self.freq_array)
+
+    def detect(self, gb):
+        # Replicating manticore method
+        # gb needs to be callable with a frequency (Hz) array argument
+        return self.integrate_response(gb) / self.filter_width
 
     def calculate_width(self):
         # Copying Kevin's method from manticore
         # integrates response(nu)/nu
         return self.integrate_response(np.reciprocal) * self.center
-
-    def detect(self, gb):
-        # Replicating manticore method
-        # gb must have RADIATE method (Greybody)
-        return self.integrate_response(gb.radiate) / self.filter_width
 
     def __repr__(self):
         return "<Instrument: {:s} band>".format(self.name)
