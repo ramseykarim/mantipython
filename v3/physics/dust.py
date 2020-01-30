@@ -5,9 +5,9 @@ from .mpy_utils import cst
 
 """
 Dust
-Author: Ramsey Karim
 Various ways to represent dust opacity
 """
+__author__ = "Ramsey Karim"
 
 
 # Constants that ONLY AFFECT DUST

@@ -3,8 +3,9 @@ from scipy.optimize import minimize
 import sys
 
 """
-Solve a single map. Assumes the entire map is in the arrays passed to
+Utilities to solve a single map. Assumes the entire map is in the arrays passed to
 fit_full_image. Returns a dictionary containing numpy arrays.
+Created: probably January 25 2020 or something
 """
 __author__ = "Ramsey Karim"
 
@@ -70,11 +71,11 @@ def fit_pixel_jac(observations, errors, detectors, src_fn,
     return result
 
 
-def fit_full_image(observation_maps, error_maps, detectors, src_fn,
+def fit_array(observation_maps, error_maps, detectors, src_fn,
     initial_guess, bounds, mask=None, log_func=None,
     fit_pixel_func=fit_pixel_standard):
     """
-    Fit an entire image, with data and uncertainties passed in as
+    Fit an array of pixels, with data and uncertainties passed in as
     sequences of numpy.ndarrays.
     Dimensionality does not matter, as everything gets flattened anyway.
     The original dimensionality is returned.

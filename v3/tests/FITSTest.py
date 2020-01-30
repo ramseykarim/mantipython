@@ -4,10 +4,8 @@ from astropy.io import fits
 from astropy.nddata.utils import Cutout2D
 from astropy.wcs import WCS
 
-from ..solve import solve_map
-from ..physics.greybody import Greybody
-from ..physics.dust import TauOpacity
-from ..physics.instrument import get_instrument
+from .. import solve
+from ..physics import Greybody, TauOpacity, get_instrument
 
 """
 Test a FITS-saving wrapper for the the fit routine.

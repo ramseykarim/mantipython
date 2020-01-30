@@ -8,13 +8,14 @@ from .greybody import B
 
 """
 Instrument
-Author: Ramsey Karim
 Represents a single filter/detector combination on some instrument.
 Implements a DETECT function that returns an estimated flux density at a
     stated reference wavelength using a calculated filter width.
 Needs access to a filter profile.
-The GREYBODY passed to DETECT must implement a RADIATE function.
+The function passed to DETECT must accept frequencies in Hz and return
+    flux densities in MJy/sr.
 """
+__author__ = "Ramsey Karim"
 
 from .computer_config import bandpass_directory, p_RIMO
 

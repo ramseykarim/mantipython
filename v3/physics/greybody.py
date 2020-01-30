@@ -4,11 +4,14 @@ from .mpy_utils import cst, arg_as_array
 
 """
 Greybody
-Author: Ramsey Karim
 Represents a source model based on a uniform dust cloud.
 Implements a RADIATE function that returns flux density at argument frequencies
+Implements a DRADIATE function for first derivatives of two or three
+    GREYBODY parameters. DRADIATE only works if dust.TauOpacity is the
+    dust model.
 Needs a dust model (Dust) as input
 """
+__author__ = "Ramsey Karim"
 
 MJysr = 1e20
 log10 = np.log(10.)

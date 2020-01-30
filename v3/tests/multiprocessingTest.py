@@ -12,35 +12,71 @@ Created January 29, 2019
 __author__ = "Ramsey Karim"
 
 def simple_parallel_func(t):
+    # Just test what happens when I 'sleep'
+    # Mainly to see when things happen in serial/parallel
+    # Do some soundouff. Following code copied from the internet
     print('module name:', __name__)
     if hasattr(os, 'getppid'):  # only available on Unix
         print('parent process:', os.getppid())
     print('process id:', os.getpid(), "starting")
-    sleep(t)
+    sleep(t) # Do the actual sleeping
     print('process id:', os.getpid(), "done sleeping")
 
-def pfuncTest():
+def simpleTest():
     """
-    Run this under 'if name main'
+    Run this under 'if name == main'
     """
     procs = []
     for i in range(4):
-        p = multiprocessing.Process(target=simple_parallel_func, args=(4,))
+        p = multiprocessing.Process(target=simple_parallel_func, args=(2,))
+        p.start()
+        procs.append(p)
+        # If I did p.join() here, this would essentially be serial
+    # Now, procs are running in parallel
+    for p in procs:
+        p.join()
+    simple_parallel_func(1) # Does not have a parent PID
+
+def array_slice(i, total_i, array_size):
+    arr_slice_size = int(array_size//total_i) + 1
+    return slice(arr_slice_size*i, arr_slice_size*(i+1))
+
+def array_parallel_func(i, total_i, arr, q):
+    print(f"Process number {i}, pid {os.getpid()}, starting...")
+    arr = arr[array_slice(i, total_i, arr.size)]
+    sleep(1) # represent work taking some time
+    q.put((i, arr*2.))
+    print(f"Process number {i}, pid {os.getpid()}, done.")
+
+def arrayTest():
+    """
+    Run under if name == main
+    """
+    procs = []
+    n_cpus = 4
+    result_q = multiprocessing.SimpleQueue()
+    test_arr = np.arange(61)
+    test_arr_size = test_arr.size
+    print('-'*40)
+    print(test_arr)
+    print('-'*40)
+    for i in range(n_cpus):
+        p = multiprocessing.Process(target=array_parallel_func,
+            args=(i, n_cpus, test_arr, result_q))
         p.start()
         procs.append(p)
     for p in procs:
         p.join()
-    simple_parallel_func(1)
+    while not result_q.empty():
+        i, arr_subset = result_q.get()
+        test_arr[array_slice(i, n_cpus, test_arr_size)] = arr_subset
+    print('-'*40)
+    print(test_arr)
+    print('-'*40)
 
-def array_parallel_func(i, total_i, arr):
-    raise NotImplementedError("not finished writing!!!")
-    print(f"Process number {i}, pid {os.getpid()}, starting...")
-    arr_slice_size = int(arr.size//total_i) + 1
-    arr = arr[slice(arr_slice_size*i, arr_slice_size*(i+1))]
-    ##### CONTINUE LATER
 
 if __name__ == "__main__":
-    array_parallel_func(None, None, None)
+    arrayTest()
 
 """
 Actually I think this is finally making sense

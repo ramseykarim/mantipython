@@ -3,7 +3,7 @@ import pickle
 import datetime
 import sys
 
-from ..solve import solve_map
+from .. import solve
 from ..physics.greybody import Greybody
 from ..physics.dust import TauOpacity
 from ..physics.instrument import get_instrument
@@ -61,8 +61,8 @@ LOG_NAME = "./log14.log"
 # { python -m v3.tests.fitTest 2>&1; } 1>>log2.log &
 
 param_names = ('T', 'tau', 'beta')
-initial_guesses = [fit.standard_x0[param_name] for param_name in param_names]
-bounds = [list(fit.standard_bounds[param_name]) for param_name in param_names]
+initial_guesses = [solve.standard_x0[param_name] for param_name in param_names]
+bounds = [list(solve.standard_bounds[param_name]) for param_name in param_names]
 # bounds[0][1] = 35
 # dust = TauOpacity(2.0)
 def src_fn(x):
@@ -92,7 +92,7 @@ t0 = datetime.datetime.now()
 with open(LOG_NAME, 'a') as f:
     f.write(f"Cutout shape: {imgs[0].shape}\n")
     f.write(f"started at {t0}\n")
-result = solve_map.fit_full_image(imgs, errs, get_instrument(wavelens), src_fn,
+result = solve.fit_array(imgs, errs, get_instrument(wavelens), src_fn,
     initial_guesses, bounds, mask=mask,
     chisq=True, log_func=log_fn)
 t1 = datetime.datetime.now()

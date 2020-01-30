@@ -6,9 +6,10 @@ from astropy.wcs import WCS
 import datetime
 import sys
 
-from ..physics.greybody import Greybody
-from ..physics.dust import Dust
-from ..physics.instrument import get_instrument
+from ..physics import Greybody, Dust, get_instrument
+
+print('success')
+sys.exit()
 
 data_dir = "/n/sgraraid/filaments/Perseus/Herschel/processed/1342190326/"
 def fn_gen(band_stub, offset=""):
