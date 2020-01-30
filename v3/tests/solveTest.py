@@ -5,10 +5,8 @@ import datetime
 import sys
 import os
 
-from ..solve import solve_map
-from ..physics.greybody import Greybody
-from ..physics.dust import TauOpacity
-from ..physics.instrument import get_instrument
+from .. import solve
+from ..physics import Greybody, TauOpacity, get_instrument
 
 """
 Test fit_full_image in solve_map.py
@@ -65,8 +63,8 @@ ct_slice = ct.slices_original
 # Choose the parameters to use
 param_names = ('T', 'tau', 'beta')
 # Loop througuh parameters to make init values and bounds
-initial_guesses = [solve_map.standard_x0[pn] for pn in param_names]
-bounds = [list(solve_map.standard_bounds[pn]) for pn in param_names]
+initial_guesses = [solve.standard_x0[pn] for pn in param_names]
+bounds = [list(solve.standard_bounds[pn]) for pn in param_names]
 # Adjust bounds if needed:
 pass
 
