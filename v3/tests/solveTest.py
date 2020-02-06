@@ -90,7 +90,7 @@ def logger(text):
 
 t0 = datetime.datetime.now()
 logger(f"\nNew Session!\nCutout shape: {imgs[0].shape}\nstarted at {t0}")
-result_dict = solve_map.fit_full_image(imgs, errs, get_instrument(wavelens), src_fn,
+result_dict = solve.fit_array(imgs, errs, get_instrument(wavelens), src_fn,
     initial_guesses,  bounds, mask=None, log_func=logger)
 t1 = datetime.datetime.now()
 logger(f"finished at {t1}\ntook {(t1-t0).total_seconds()/60.} minutes")

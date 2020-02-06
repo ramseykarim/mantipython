@@ -12,9 +12,19 @@ __author__ = "Ramsey Karim"
 
 # Standard guesses for T, N, tau, beta
 # N, tau are log10
-standard_x0 = {'T': 15, 'N': 22, 'tau': -4, 'beta': 2}
+standard_x0 = {'T': 15, 'N': 22, 'tau': -2, 'beta': 2}
 standard_bounds = {'T': (0, None), 'N': (18, 25), 'tau': (-7, 0), 'beta': (0, 3)}
 
+# Useful for creating the dictionary to return
+result_keys = {
+    'solution': lambda p, d: p,
+    'model_flux': lambda p, d: d,
+    'diff_flux': lambda p, d: d,
+    'chisq': lambda p, d: 1,
+    'jacobian': lambda p, d: p,
+    'n_iter': lambda p, d: 1,
+    'success': lambda p, d: 1,
+}
 
 def fit_pixel_standard(observations, errors, detectors, src_fn,
     x0=None, bounds=None, **min_kwargs):
@@ -145,31 +155,20 @@ def fit_array(observation_maps, error_maps, detectors, src_fn,
                 log_func("{:3d} percent done".format(nearest_10_pct))
                 completed_logs.add(nearest_10_pct)
 
-    # Reshape all the new maps, delete to avoid approximately doubling
-    # memory usage during this last step.
-    solution_maps = solution_seq.T.reshape((n_params, *img_shape))
-    del solution_seq
-    jac_maps = jac_seq.T.reshape((n_params, *img_shape))
-    del jac_seq
-    model_maps = model_seq.T.reshape((n_data, *img_shape))
-    del model_seq
-    diff_maps = diff_seq.T.reshape((n_data, *img_shape))
-    del diff_seq
-    chisq_map = chisq_seq.reshape(img_shape)
-    del chisq_seq
-    nit_map = nit_seq.reshape(img_shape)
-    del nit_seq
-    success_map = success_seq.reshape(img_shape)
-    del success_seq
-
     # Build the return value of this function
     result_dict = {
-        'solution': solution_maps,
-        'model_flux': model_maps,
-        'diff_flux': diff_maps,
-        'chisq': chisq_map,
-        'jacobian': jac_maps,
-        'n_iter': nit_map,
-        'success': success_map,
+        'solution': solution_seq,
+        'model_flux': model_seq,
+        'diff_flux': diff_seq,
+        'chisq': chisq_seq,
+        'jacobian': jac_seq,
+        'n_iter': nit_seq,
+        'success': success_seq,
     }
+    # Delete to avoid approximately doubling memory usage during this last step.
+    del solution_seq, model_seq, diff_seq, chisq_seq, jac_seq, nit_seq, success_seq
+    # Reshape all the new maps
+    for k in result_dict:
+        i_shape = result_keys[k](n_params, n_data)
+        result_dict[k] = result_dict[k].T.reshape(i_shape, *img_shape)
     return result_dict

@@ -33,7 +33,7 @@ nu0_160 = cst.c / (160 * micron_meters) # frequency in Hz
 # Can be instantiated and called same as Dust
 class TauOpacity:
 
-    def __init__(self, beta):
+    def __init__(self, beta=2.0):
         # beta unitless
         # nu0 is fixed at 160micron
         self.beta = beta

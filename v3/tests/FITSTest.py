@@ -76,4 +76,5 @@ print("center", imgs[0].input_position_cutout, imgs[0].input_position_original)
 """
 Finish the FITS stuff tomorrow :) (rkarim, 1/21/20)
 hah (rkarim, 1/28/20)
+I'm not planning on finishing this file (rkarim, 2/5/20)
 """
