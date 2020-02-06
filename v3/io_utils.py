@@ -92,15 +92,18 @@ def write_result(filename, result_dictionary, data_obj, parameters_to_fit, initi
             ihdu.header['BUNIT'] = "use your best judgement"
             hdu_list.append(ihdu)
     for k in data_obj:
-        for img, stub in zip(data_obj[k], ('', 'd')):
+        for img, stub, idx in zip(data_obj[k], ('', 'd'), range(2)):
             ihdu = fits.ImageHDU(data=img, header=fits.Header())
             ihdu.header['EXTNAME'] = stub+"BAND"+str(int(k))
             ihdu.header['BUNIT'] = "MJy/sr"
+            ihdu.header['HISTORY'] = f"Original file: {data_obj.filenames[k][idx]}"
             ihdu.header.update(wcs.to_header())
             hdu_list.append(ihdu)
     phdu.header['DATE'] = (datetime.datetime.now(datetime.timezone.utc).astimezone().isoformat(), "File creation date")
     phdu.header['CREATOR'] = (f"mantipython, by {__author__}", "FITS file creator")
     phdu.header['COMMENT'] = f"Bands {','.join(map(str, bands_to_fit))} solved for {','.join(parameters_to_fit)}."
+    phdu.header['HISTORY'] = f"Data from:"
+    phdu.header['HISTORY'] = data_obj.prefix
     phdu.header.update(wcs.to_header())
     if 'beta' not in parameters_to_fit:
         phdu.header['COMMENT'] = f"Beta set to {initial_param_vals['beta']}"
