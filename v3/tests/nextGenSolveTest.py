@@ -36,12 +36,12 @@ for k in data_fns:
     data_dictionary[k] = (data_fns[k], err_fns[k])
 # select small cutout area
 i0, j0 = 150, 150
-width_i, width_j = 40, 40
+width_i, width_j = 60, 60
 # decide whether or not this is parallel
-n_processes = 4
+n_processes = 6
 write_fn = "/home/ramsey/Downloads/test.fits"
 fit_entire_map(data_dictionary, [70, 160, 250, 350], ('T', 'tau'),
     data_directory=data_dir, log_name_func=lambda s: f"/home/ramsey/Downloads/log{s}.log",
     n_procs=n_processes, destination_filename=write_fn,
-    cutout=((i0, j0), (width_i, width_j)),
+    cutout=((i0, j0), (width_i, width_j)), fitting_function='jac',
 )

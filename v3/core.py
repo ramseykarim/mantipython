@@ -16,7 +16,7 @@ __author__ = "Ramsey Karim"
 def fit_entire_map(data_filenames, bands_to_fit, parameters_to_fit,
     initial_param_vals=None, param_bounds=None, dust='tau', dust_kwargs=None,
     data_directory="", cutout=None, log_name_func=None, n_procs=2,
-    destination_filename=None):
+    destination_filename=None, fitting_function=None):
     """
     Fit entire Herschel map in several bands.
     :param data_filenames: dictionary mapping integer band wavelength in
@@ -49,6 +49,7 @@ def fit_entire_map(data_filenames, bands_to_fit, parameters_to_fit,
     :param destination_filename: exactly what it sounds like.
         string path to write to.
     """
+    # BEGINNING SETUP
     # Sanitize list
     bands_to_fit = list(bands_to_fit)
     # Get basic info for input data
@@ -91,65 +92,87 @@ def fit_entire_map(data_filenames, bands_to_fit, parameters_to_fit,
     src_fn = generate_source_function(parameters_to_fit, initial_param_vals,
         dust, dust_kwargs)
 
+    # Fitting function selection
+    if fitting_function == 'jac':
+        fitting_function = solve.fit_pixel_jac
+    else:
+        fitting_function = solve.fit_pixel_standard
+    # FINISHED SETUP
+
     if n_procs > 1:
+        ########################################
         # Parallel case, use multiprocessing
+
+        # (2/6/20) was using Queue, but pickling/piping(?) has data limit
+        # Now using shared arrays
+        # Set up some structure with which to gather data from processes
+        result_dict = {}
+        for k in solve.result_frames:
+            array_size = ct_size * solve.result_frames[k](len(parameters_to_fit), len(bands_to_fit))
+            shared_array = multiprocessing.Array('d', array_size)
+            result_dict[k] = shared_array
+
+        # <PARALLEL>
+        # Run the processes
         procs = []
-        result_queue = multiprocessing.Queue()
         for proc_idx in range(n_procs):
             p = multiprocessing.Process(target=run_single_process,
                 args=(
                     proc_idx, n_procs, data_filenames, bands_to_fit, data_directory,
-                    ct_slices, log_name_func(f"_{proc_idx}"), src_fn,
+                    ct_slices, ct_size, log_name_func(f"_{proc_idx}"), src_fn,
                     [initial_param_vals[pn] for pn in parameters_to_fit],
                     [param_bounds[pn] for pn in parameters_to_fit],
-                ), kwargs=dict(result_queue=result_queue))
+                    fitting_function,
+                ), kwargs=dict(shared_array_dict=result_dict))
             p.start()
             procs.append(p)
         # Now they're running in parallel
         for p in procs:
             p.join()
+        # </PARALLEL>
+
         # Now it's serial again
-        # Make a result dictionary to hold the synthesized results
-        result_dict = {}
-        for k in solve.result_keys:
-            array_shape = (solve.result_keys[k](len(parameters_to_fit),
-                len(bands_to_fit)), ct_size)
-            result_dict[k] = solve.np.full(array_shape, solve.np.nan)
-        # Unload the queue into the result dictionary
-        while not result_queue.empty():
-            proc_idx, result_dict_subset = result_queue.get()
-            subproc_slice = array_slice(proc_idx, n_procs, ct_size)
-            for k in result_dict_subset:
-                result_dict[k][:, subproc_slice] = result_dict_subset[k]
-        # Reshape the flattened entries from the result dictionary
+        # We basically already have the completed results dictionary, we just
+        # need to transform it back to numpy arrays
         for k in result_dict:
-            result_dict[k] = result_dict[k].reshape(result_dict[k].shape[0], *ct_shape)
+            i_shape = solve.result_frames[k](len(parameters_to_fit), len(bands_to_fit))
+            tmp = solve.np.full((i_shape, *ct_shape), solve.np.nan)
+            tmp[:] = solve.np.frombuffer(result_dict[k].get_obj()).reshape(i_shape, *ct_shape)
+            result_dict[k] = tmp
+            # Now the shared arrays are gone, it's just pure numpy arrays
+        ########################################
     else:
+        ########################################
         # Serial case, no need for multiprocessing
         result_dict = run_single_process(0, 1,
             data_filenames, bands_to_fit, data_directory,
-            ct_slices, log_name_func(""), src_fn,
+            ct_slices, ct_size, log_name_func(""), src_fn,
             [initial_param_vals[pn] for pn in parameters_to_fit],
             [param_bounds[pn] for pn in parameters_to_fit],
+            fitting_function,
         )[1]
+        ########################################
+
     # Now both result dictionaries are similar
     if destination_filename is None:
         destination_filename = data_directory + "mantipython_solution.fits"
+    data_lookup = io_utils.Data(data_filenames, bands_to_fit, prefix=data_directory)
+    data_lookup.map(lambda oe, k: tuple(x[ct_slices] for x in oe))
     io_utils.write_result(destination_filename,
-        result_dict, parameters_to_fit, initial_param_vals,
+        result_dict, data_lookup, parameters_to_fit, initial_param_vals,
         bands_to_fit, ct_wcs)
     print("Done, written to "+destination_filename)
     # This function needs a better name
 
 
 def run_single_process(proc_idx, n_procs, data_filenames, bands_to_fit,
-    directory, cutout_slices, log_name, src_fn, init_vals, bounds,
-    result_queue=None):
+    directory, cutout_slices, cutout_size, log_name, src_fn, init_vals, bounds,
+    fitting_function, shared_array_dict=None):
     """
     Either the serialized case of running the fit, or the work of one process
     in the parallel case.
     """
-    if result_queue is None and n_procs > 1:
+    if shared_array_dict is None and n_procs > 1:
         # Parallel is parallel
         raise RuntimeError("Parallel needs to be parallel. Give a Queue.")
 
@@ -159,6 +182,8 @@ def run_single_process(proc_idx, n_procs, data_filenames, bands_to_fit,
 
     # Function to map onto data_lookup.loaded_data to apply all the slicing
     def f_to_map(obserr, k):
+        # k is unused but theoretically gives me ability to do different
+        # things to different wavelengths (blow up errors, etc)
         obserr_modified = []
         for x in obserr:
             # Simple cutout function first
@@ -166,30 +191,33 @@ def run_single_process(proc_idx, n_procs, data_filenames, bands_to_fit,
             if n_procs > 1:
                 # Flatten so that dividing evenly is easier
                 # Slice again based on process ID to divide the work
-                x = x.flatten()[array_slice(proc_idx, n_procs, x.size)]
+                x = x.flatten()[array_slice(proc_idx, n_procs, cutout_size)]
             obserr_modified.append(x)
         return tuple(obserr_modified)
 
     data_lookup.map(f_to_map) # Slice the data somehow
 
-    def logger(message):
-        with open(log_name, 'a') as f:
-            f.write(message+"\n")
-
+    logger = io_utils.make_logger(log_name)
     t0 = io_utils.datetime.datetime.now()
     logger(f"Beginning fit on {data_lookup[bands_to_fit[0]][0].shape}")
     result_dict = solve.fit_array(*zip(*(data_lookup[k] for k in bands_to_fit)),
         physics.get_instrument(bands_to_fit), src_fn,
-        init_vals, bounds, log_func=logger,
+        init_vals, bounds, log_func=logger, fit_pixel_func=fitting_function,
     )
     t1 = io_utils.datetime.datetime.now()
     logger(f"Finished at {t1}\nTook {(t1-t0).total_seconds()/60.} minutes")
-    result = (proc_idx, result_dict)
-    if result_queue is None:
-        return result
+    if shared_array_dict is None:
+        return (proc_idx, result_dict)
     else:
-        result_queue.put(result)
-
+        # We have results in a dictionary with shapes according to
+        # solve.result_frames[k](len(parameters_to_fit), len(bands_to_fit)), ct_size
+        # Need to reshape each shared array to this shape and then assign
+        # the result_dict entry to the array_slice() of the shared array
+        for k in result_dict:
+            i_shape = result_dict[k].shape[0]
+            process_slice = array_slice(proc_idx, n_procs, cutout_size)
+            shared_arr_np = solve.np.frombuffer(shared_array_dict[k].get_obj()).reshape((i_shape, cutout_size))
+            shared_arr_np[:, process_slice] = result_dict[k]
 
 
 def array_slice(i, total_i, array_size):
@@ -228,10 +256,11 @@ def generate_source_function(parameters_to_fit, initial_param_vals,
         else:
             return initial_param_vals[param_name]
     # Build the source function; this will be used in the fitting algorithm
-    def src_fn(x):
+    def src_fn(x, **kwargs):
         return physics.Greybody(
             retrieve_parameter(x, 'T'),
             retrieve_parameter(x, column_parameter_name),
-            dust_function(retrieve_parameter(x, 'beta'))
+            dust_function(retrieve_parameter(x, 'beta')),
+            **kwargs,
         )
     return src_fn

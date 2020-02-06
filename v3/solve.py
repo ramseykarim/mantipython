@@ -16,7 +16,7 @@ standard_x0 = {'T': 15, 'N': 22, 'tau': -2, 'beta': 2}
 standard_bounds = {'T': (0, None), 'N': (18, 25), 'tau': (-7, 0), 'beta': (0, 3)}
 
 # Useful for creating the dictionary to return
-result_keys = {
+result_frames = {
     'solution': lambda p, d: p,
     'model_flux': lambda p, d: d,
     'diff_flux': lambda p, d: d,
@@ -169,6 +169,6 @@ def fit_array(observation_maps, error_maps, detectors, src_fn,
     del solution_seq, model_seq, diff_seq, chisq_seq, jac_seq, nit_seq, success_seq
     # Reshape all the new maps
     for k in result_dict:
-        i_shape = result_keys[k](n_params, n_data)
+        i_shape = result_frames[k](n_params, n_data)
         result_dict[k] = result_dict[k].T.reshape(i_shape, *img_shape)
     return result_dict

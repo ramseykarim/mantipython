@@ -60,7 +60,13 @@ def check_size_and_header(filename):
     return tmp.shape, hdr
 
 
-def write_result(filename, result_dictionary, parameters_to_fit, initial_param_vals, bands_to_fit,
+def make_logger(log_name):
+    def logger(message):
+        with open(log_name, 'a') as f:
+            f.write(message+'\n')
+    return logger
+
+def write_result(filename, result_dictionary, data_obj, parameters_to_fit, initial_param_vals, bands_to_fit,
     wcs):
     """
     :param result_dictionary: this should be in the same form as the
@@ -70,7 +76,7 @@ def write_result(filename, result_dictionary, parameters_to_fit, initial_param_v
     phdu = fits.PrimaryHDU()
     hdu_list = [phdu]
     for k in result_dictionary:
-        n_panels = solve.result_keys[k](len(parameters_to_fit), len(bands_to_fit))
+        n_panels = solve.result_frames[k](len(parameters_to_fit), len(bands_to_fit))
         if n_panels == 1:
             suffixes = ("",)
         elif n_panels == len(parameters_to_fit):
@@ -80,11 +86,17 @@ def write_result(filename, result_dictionary, parameters_to_fit, initial_param_v
         else:
             raise RuntimeError(f"Strange number of panels in {k.upper()}: {n_panels}")
         for i, suffix in zip(range(n_panels), suffixes):
-            ihdu = fits.ImageHDU(data=result_dictionary[k][i],
-                header=fits.Header())
+            ihdu = fits.ImageHDU(data=result_dictionary[k][i], header=fits.Header())
             ihdu.header.update(wcs.to_header())
             ihdu.header['EXTNAME'] = k + suffix
             ihdu.header['BUNIT'] = "use your best judgement"
+            hdu_list.append(ihdu)
+    for k in data_obj:
+        for img, stub in zip(data_obj[k], ('', 'd')):
+            ihdu = fits.ImageHDU(data=img, header=fits.Header())
+            ihdu.header['EXTNAME'] = stub+"BAND"+str(int(k))
+            ihdu.header['BUNIT'] = "MJy/sr"
+            ihdu.header.update(wcs.to_header())
             hdu_list.append(ihdu)
     phdu.header['DATE'] = (datetime.datetime.now(datetime.timezone.utc).astimezone().isoformat(), "File creation date")
     phdu.header['CREATOR'] = (f"mantipython, by {__author__}", "FITS file creator")
