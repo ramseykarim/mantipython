@@ -1,0 +1,8 @@
+v3 is v1 but cleaner, a nice clean rewrite
+v3 successfully implements multiprocessing and can run with any number
+of available cores
+
+v3 supports 70/100 micron PACS as well. v3 focuses on single-component, so
+for now, does not support multicomponent. It supports fitting variable beta,
+either with tau at 160um or with kappa at some reference frequency. It can
+also use a dust model (though that cannot be a fit parameter)
