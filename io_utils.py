@@ -77,12 +77,12 @@ def write_result(filename, result_dictionary, data_obj, parameters_to_fit, initi
     hdu_list = [phdu]
     for k in result_dictionary:
         n_panels = solve.result_frames[k](len(parameters_to_fit), len(bands_to_fit))
-        if n_panels == 1:
-            suffixes = ("",)
-        elif n_panels == len(parameters_to_fit):
+        if k == 'solution':
             suffixes = parameters_to_fit
         elif n_panels == len(bands_to_fit):
             suffixes = map(str, bands_to_fit)
+        elif n_panels == 1:
+            suffixes = ("",)
         else:
             raise RuntimeError(f"Strange number of panels in {k.upper()}: {n_panels}")
         for i, suffix in zip(range(n_panels), suffixes):
