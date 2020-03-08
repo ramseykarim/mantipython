@@ -43,32 +43,47 @@ class Greybody:
     """
     Single component Greybody
     """
-    def __init__(self, temperature, tau160, dust_model, p=3):
+    def __init__(self, temperature, normalization, dust_model, p=3):
+        """
+        :param temperature: temperature in K
+        :param normalization: either tau160 or kappa0 depending on the
+            dust model class passed as dust_model. GIVEN IN LOG10!
+        :param dust_model: either TauOpacity or Dust instance, dust model to use
+        :param p: number of parameters, only used if taking derivatives
+        """
         self.T = temperature*1. # make sure *everything* is a float....
         # Bug (1/28/20): had a problem with 10**tau vs 10.**tau,
         #  int infected(?) float and caused np.exp(-tau) to fail.
-        self.tau160 = 10.**tau160 # arg as LOG10
+        self.normalization = 10.**normalization # arg as LOG10
         self.dust = dust_model
         # nparams only matters for taking derivatives
         self.nparams = p
 
-    def radiate(self, nu):
+    def tau(self, nu):
+        # Convenience function for calculating optical depth
         nu = arg_as_array(nu)
-        # Tau can still "act like" column density, if
-        #   Dust is used instead of TauOpacity
-        tau = self.dust(nu) * self.tau160
+        return self.dust(nu) * self.normalization
+
+    def radiate(self, nu, expntau=None):
+        """
+        Calculate emission in MJy/sr at frequencies given by nu array
+        """
         source = B(nu, self.T)
+        # norm is either tau160 or column density, depending if
+        #   Dust or TauOpacity is used
+        if expntau is None:
+            # (for MultiGreybody: option to pass in tau)
+            expntau = np.exp(-self.tau(nu))
         # returns a nu-sized array
-        return source * (1 - np.exp(-tau))
+        return source * (1 - expntau)
 
     def dradiate(self, nu):
-        nu = arg_as_array(nu)
         # Return a (2 or 3, *nu.shape) array for T, tau(, beta)
         # self.dust(nu) just returns (nu/nu0)**beta
-        tau = self.dust(nu) * self.tau160
+        tau = self.tau(nu)
         exptau = np.exp(-tau)
         dradiate_dT = dB_dT(nu, self.T) * (1 - exptau)
-        # we need the derivative of LOG10(tau160)
+        # we need the derivative of LOG10(normalization)
         dradiate_dtau_base = B(nu, self.T) * exptau * tau
         if self.nparams == 3:
             return np.array([
@@ -89,9 +104,50 @@ class Greybody:
         return self.radiate(x)
 
     def __repr__(self):
-        s = "({:.1f}K/{:.1E}/{:s})".format(self.T, self.tau160, str(self.dust))
+        s = "({:.1f}K/{:.1E}/{:s})".format(self.T, self.normalization, str(self.dust))
         return f"<Greybody:{s}>"
 
     def __str__(self):
         s = "{:.1f}".format(self.T)
         return f"gb({s})"
+
+
+class MultiGreybody:
+
+    def __init__(self, temperatures, normalizations, dust_models, p=None):
+        """
+        See Greybody documentation for description of these parameters.
+        These are the same arguments, but passed as lists.
+        It is assumed that the 0-index is the most background layer and the
+            last element is the most foreground layer.
+        :param temperatures: list of temperatures
+        :param normalizations: list of normalizations
+        :param dust_models: list of Dust or TauOpacity instances
+        :param p: not used in this class
+        """
+        if not len(temperatures) == len(normalizations) == len(dust_models):
+            txt = f"T: {len(temperatures)}, norm: {len(normalizations)}, dust: {len(dust_models)}"
+            raise RuntimeError("Mismatched numbers of parameters: " + txt)
+        self.greybodies = [Greybody(t, norm, dust, p=None) for t, norm, dust in zip(temperatures, normalizations, dust_models)]
+
+    def radiate(self, nu):
+        # Loops thru the greybody layers and does radiative transfer thru each
+        total_emission = np.zeros_like(nu)
+        for gb in self.greybodies:
+            expntau = np.exp(-gb.tau(nu))
+            total_emission = total_emission*expntau + gb.radiate(nu, expntau=expntau)
+        return total_emission
+
+    def dradiate(self, nu):
+        raise NotImplementedError("No derivatives for MultiGreybody yet.")
+
+    def __call__(self, x):
+        return self.radiate(x)
+
+    def __repr__(self):
+        s = "->".join([gb.__repr__() for gb in self.greybodies])
+        return f"Multi[{s}]"
+
+    def __str__(self):
+        s = ",".join([gb.__str__() for gb in self.greybodies])
+        return f"multi[{s}]"

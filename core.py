@@ -48,6 +48,7 @@ def fit_entire_map(data_filenames, bands_to_fit, parameters_to_fit,
     :param n_procs:
     :param destination_filename: exactly what it sounds like.
         string path to write to.
+    :param fitting_function: 'jac' for jacobian, anything else for standard
     """
     # BEGINNING SETUP
     # Sanitize list
@@ -237,15 +238,21 @@ def generate_source_function(parameters_to_fit, initial_param_vals,
     # Standardize the dust functions into a lambda function with one argument
     if dust == 'tau':
         # Make sure dust parameter matches dust type
-        if 'N' in parameters_to_fit:
+        if 'N' in parameters_to_fit or "N_bg" in parameters_to_fit:
             raise RuntimeError("Parameter N not compatible with dust type tau")
         dust_function = lambda b: physics.TauOpacity(beta=b)
         column_parameter_name = 'tau'
+        if 'tau_bg' in parameters_to_fit:
+            df_bg = lambda b: physics.TauOpacity(beta=b)
+            cpn_bg = 'tau_bg'
     elif dust == 'kappa':
-        if 'tau' in parameters_to_fit:
+        if 'tau' in parameters_to_fit or 'tau_bg' in parameters_to_fit:
             raise RuntimeError("Parameter tau not compatible with dust type kappa")
         dust_function = lambda b: physics.Dust(beta=b, **dust_kwargs)
         column_parameter_name = 'N'
+        if 'N_bg' in parameters_to_fit:
+            df_bg = lambda b: physics.Dust(beta=b, **dust_kwargs)
+            cpn_bg = 'N_bg'
     else:
         raise RuntimeError(f"Dust type {dust} not recognized.")
     # Make function for retrieving parameters from parameter array,
@@ -256,11 +263,21 @@ def generate_source_function(parameters_to_fit, initial_param_vals,
         else:
             return initial_param_vals[param_name]
     # Build the source function; this will be used in the fitting algorithm
-    def src_fn(x, **kwargs):
-        return physics.Greybody(
-            retrieve_parameter(x, 'T'),
-            retrieve_parameter(x, column_parameter_name),
-            dust_function(retrieve_parameter(x, 'beta')),
-            **kwargs,
-        )
+    if any(('bg' in param_name) for param_name in parameters_to_fit):
+        def src_fn(x, **kwargs):
+            return physics.MultiGreybody(
+                [retrieve_parameter(x, 'T_bg'), retrieve_parameter(x, 'T')],
+                [retrieve_parameter(x, cpn_bg), retrieve_parameter(x, column_parameter_name)],
+                [df_bg(retrieve_parameter(x, 'beta')), dust_function(retrieve_parameter(x, 'beta'))],
+                **kwargs
+            )
+            pass
+    else:
+        def src_fn(x, **kwargs):
+            return physics.Greybody(
+                retrieve_parameter(x, 'T'),
+                retrieve_parameter(x, column_parameter_name),
+                dust_function(retrieve_parameter(x, 'beta')),
+                **kwargs,
+            )
     return src_fn

@@ -77,9 +77,9 @@ def write_result(filename, result_dictionary, data_obj, parameters_to_fit, initi
     hdu_list = [phdu]
     for k in result_dictionary:
         n_panels = solve.result_frames[k](len(parameters_to_fit), len(bands_to_fit))
-        if k == 'solution':
+        if k == 'solution' or k == 'jacobian':
             suffixes = parameters_to_fit
-        elif n_panels == len(bands_to_fit):
+        elif 'flux' in k:
             suffixes = map(str, bands_to_fit)
         elif n_panels == 1:
             suffixes = ("",)

@@ -12,8 +12,10 @@ __author__ = "Ramsey Karim"
 
 # Standard guesses for T, N, tau, beta
 # N, tau are log10
-standard_x0 = {'T': 15, 'N': 22, 'tau': -2, 'beta': 2}
-standard_bounds = {'T': (0, None), 'N': (18, 25), 'tau': (-7, 0), 'beta': (0, 3)}
+standard_x0 = {'T': 15, 'N': 22, 'tau': -2, 'beta': 2,
+    'T_bg': 15, 'N_bg': 22, 'tau_bg': -2,}
+standard_bounds = {'T': (0, None), 'N': (18, 25), 'tau': (-7, 0), 'beta': (0, 3),
+    'T_bg': (0, None), 'N_bg': (18, 25), 'tau_bg': (-7, 0),}
 
 # Useful for creating the dictionary to return
 result_frames = {
