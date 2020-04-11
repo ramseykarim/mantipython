@@ -23,10 +23,48 @@ result_frames = {
     'model_flux': lambda p, d: d,
     'diff_flux': lambda p, d: d,
     'chisq': lambda p, d: 1,
-    'jacobian': lambda p, d: p,
+    'error': lambda p, d: p,
     'n_iter': lambda p, d: 1,
     'success': lambda p, d: 1,
 }
+
+
+def make_goodness_of_fit_f(src_fn):
+    """
+    Define a simple goodness_of_fit_f
+    """
+    def goodness_of_fit_f(x, obs, err, instr):
+        src = src_fn(x)
+        return sum((d.detect(src) - o)**2 / (e*e) for d, o, e in zip(instr, obs, err))
+    return goodness_of_fit_f
+
+
+def make_goodness_of_fit_f_jacobian_vector(src_fn):
+    def dgof_f(x, obs, err, instr):
+        src = src_fn(x, p=len(x))
+        # src(nu) is same as src.radiate(nu)
+        return np.sum([2*(d.detect(src.radiate) - o)*d.detect(src.dradiate)/(e*e) for d, o, e in zip(instr, obs, err)], axis=0)
+    return dgof_f
+
+
+def residual_sumofsquares(obs, model):
+    return sum((o - m)**2 for o, m in zip(obs, model))
+
+
+def jacobian_matrix(err, instr, src):
+    return np.array([d.detect(src.dradiate) for d in instr])
+
+
+def weighting_matrix(err, instr, src):
+    return np.diag(1./np.array(err)**2.)
+
+
+def parameter_error_vector(*args):
+    # From http://people.duke.edu/~hpgavin/ce281/lm.pdf section 4.2
+    j = jacobian_matrix(*args)
+    w = weighting_matrix(*args)
+    return np.sqrt(np.diag(np.linalg.inv(j.T @ w @ j))) # Cool operator!
+
 
 def fit_pixel_standard(observations, errors, detectors, src_fn,
     x0=None, bounds=None, **min_kwargs):
@@ -39,9 +77,7 @@ def fit_pixel_standard(observations, errors, detectors, src_fn,
     min_kwargs can be any valid keyword arguments to scipy.optimize.minimize
     """
     # Set up goodness of fit function for fitting procedure
-    def goodness_of_fit_f(x, obs, err, instr):
-        src = src_fn(x)
-        return sum((d.detect(src) - o)**2 / (e*e) for d, o, e in zip(instr, obs, err))
+    goodness_of_fit_f = make_goodness_of_fit_f(src_fn)
 
     result = minimize(goodness_of_fit_f,
         x0=x0,
@@ -63,14 +99,10 @@ def fit_pixel_jac(observations, errors, detectors, src_fn,
     min_kwargs can be any valid keyword arguments to scipy.optimize.minimize
     """
     # Set up goodness of fit function for fitting procedure
-    def goodness_of_fit_f(x, obs, err, instr):
-        src = src_fn(x)
-        return sum((d.detect(src) - o)**2 / (e*e) for d, o, e in zip(instr, obs, err))
+    goodness_of_fit_f = make_goodness_of_fit_f(src_fn)
 
-    def dgof_f(x, obs, err, instr):
-        src = src_fn(x, p=len(x))
-        # src(nu) is same as src.radiate(nu)
-        return np.sum([2*(d.detect(src.radiate) - o)*d.detect(src.dradiate)/(e*e) for d, o, e in zip(instr, obs, err)], axis=0)
+    # Set up derivatives of goodness of fit function
+    dgof_f = make_goodness_of_fit_f_jacobian_vector(src_fn)
 
     result = minimize(goodness_of_fit_f,
         x0=x0,
@@ -83,9 +115,32 @@ def fit_pixel_jac(observations, errors, detectors, src_fn,
     return result
 
 
+def sample_uncertainty(observations, errors, detectors, src_fn,
+    x0=None, bounds=None, jac=False, **min_kwargs):
+    """
+    Sample every combination of observations +1sigma, +0, -1sigma
+    to get a very rough handle on the parameter uncertainty.
+    Uses the standard deviation of the results
+    Useful when dof=0
+    """
+    fit_pixel_func = fit_pixel_jac if jac else fit_pixel_standard
+    obs_arrays = []
+    for o, e in zip(observations, errors):
+        obs_arrays.append([o-e, o, o+e])
+    obs_cubes = np.meshgrid(*obs_arrays, indexing='ij')
+    obs_flatcubes = (x.ravel() for x in obs_cubes)
+    results = []
+    for sampled_obs in zip(*obs_flatcubes):
+        sampled_result = fit_pixel_func(sampled_obs, errors, detectors, src_fn,
+            x0=x0, bounds=None, **min_kwargs)
+        results.append(sampled_result.x)
+    results = np.array(results)
+    return np.std(results, axis=0)
+
+
 def fit_array(observation_maps, error_maps, detectors, src_fn,
     initial_guess, bounds, mask=None, log_func=None,
-    fit_pixel_func=fit_pixel_standard):
+    fit_pixel_func=fit_pixel_standard, grid_sample=False):
     """
     Fit an array of pixels, with data and uncertainties passed in as
     sequences of numpy.ndarrays.
@@ -121,7 +176,7 @@ def fit_array(observation_maps, error_maps, detectors, src_fn,
     # create solution sequence with parameters as fastest index
     solution_seq = np.full((n_pixels, n_params), np.nan)
     # do the same with other useful maps
-    jac_seq = np.full((n_pixels, n_params), np.nan)
+    error_seq = np.full((n_pixels, n_params), np.nan)
     model_seq = np.full((n_pixels, n_data), np.nan) # n_data, not n_params!
     diff_seq = np.full((n_pixels, n_data), np.nan)
     chisq_seq = np.full(n_pixels, np.nan)
@@ -134,21 +189,55 @@ def fit_array(observation_maps, error_maps, detectors, src_fn,
     keeping_track_of_progress = log_func is not None
     completed_logs = set()
 
+    # Decide if we are grid sampling for the parameter uncertainties
+    if dof == 0:
+        # Cannot explicitly calculate uncertainty; need to sample for it
+        grid_sample = True
+        msg = "Grid sample turned on because no degrees of freedom."
+        if keeping_track_of_progress:
+            log_func(msg)
+        else:
+            print(msg)
+    else:
+        # Calculating uncertainty via Jacobian matrix (4/10/20)
+        # I have compared these two methods and they produce similar results
+        # for the test case
+        pass
+
+
     # Loop through pixels and solve
     for i, obs, err, valid_pixel in zip(range(n_pixels), obs_seq, err_seq, mask_seq):
         if not valid_pixel:
             continue
+        # Get the result
         soln_object = fit_pixel_func(obs, err, detectors, src_fn,
             x0=initial_guess, bounds=bounds)
+        # Save the parameter combination
         solution_seq[i, :] = soln_object.x
-        jac_seq[i, :] = soln_object.jac
-        solution_src = src_fn(solution_seq[i, :])
+        # Make the solution source object
+        solution_src = src_fn(solution_seq[i, :], p=n_params)
+        # Get the predicted fluxes
         model_seq[i, :] = np.array([d.detect(solution_src) for d in detectors])
-        # chisq_seq[i] = sum((m - o)**2 / (e*e) for m, o, e in zip(model_seq[i, :], obs, err)) / dof
+
+        # Uncertainty
+        if grid_sample:
+            error_seq[i, :] = sample_uncertainty(obs, err, detectors, src_fn,
+                x0=initial_guess, bounds=bounds, jac=False)
+        else:
+            error_seq[i, :] = parameter_error_vector(err, detectors, solution_src)
+
+        # Get the model minus observation differences
         diff_seq[i, :] = np.array([m - o for m, o in zip(model_seq[i, :], obs)])
-        chisq_seq[i] = soln_object.fun / dof
+        # Get the chi squared
+        if dof != 0:
+            chisq_seq[i] = soln_object.fun / dof
+        else:
+            chisq_seq[i] = np.inf
+        # Get the number of iterations
         nit_seq[i] = soln_object.nit
+        # Get the success flag
         success_seq[i] = float(soln_object.success)
+        # Manage log
         if keeping_track_of_progress:
             # Print every 10%, and only print it once
             num_finished_pixels += 1
@@ -163,12 +252,12 @@ def fit_array(observation_maps, error_maps, detectors, src_fn,
         'model_flux': model_seq,
         'diff_flux': diff_seq,
         'chisq': chisq_seq,
-        'jacobian': jac_seq,
+        'error': error_seq,
         'n_iter': nit_seq,
         'success': success_seq,
     }
     # Delete to avoid approximately doubling memory usage during this last step.
-    del solution_seq, model_seq, diff_seq, chisq_seq, jac_seq, nit_seq, success_seq
+    del solution_seq, model_seq, diff_seq, chisq_seq, err_seq, nit_seq, success_seq
     # Reshape all the new maps
     for k in result_dict:
         i_shape = result_frames[k](n_params, n_data)

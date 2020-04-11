@@ -11,7 +11,7 @@ from ..physics import Greybody, TauOpacity, get_instrument
 """
 Test fit_full_image in solve_map.py
 Created 1/28/20, after renaming fit.py to solve_map.py
-Updated 4/9/20
+Updated 4/9/20, working again 4/10/20
 """
 __author__ = "Ramsey Karim"
 
@@ -44,7 +44,7 @@ err_fns = {
     # 500: "SPIRE500um-error-remapped-conv.fits",
 }
 mask = None # fits.getdata(data_dir+"dim_region_mask.fits").astype(bool)
-wavelens = [70, 160, 250,]
+wavelens = [70, 160,]
 # assume we've set up arguments for a valid Cutout2D
 # these would be (center_i, center_j), (full_width_i, full_width_j)
 
@@ -62,7 +62,7 @@ ct_slice = ct.slices_original
 
 # set up parameters and bands
 # Choose the parameters to use
-param_names = ('T', 'tau', 'beta')
+param_names = ('T', 'tau',)
 # Loop througuh parameters to make init values and bounds
 initial_guesses = [solve.standard_x0[pn] for pn in param_names]
 bounds = [list(solve.standard_bounds[pn]) for pn in param_names]
@@ -80,9 +80,9 @@ if mask is not None:
 print('Fit region shape:', imgs[0].shape)
 print("center", ct.input_position_cutout, ct.input_position_original)
 
-def src_fn(x):
+def src_fn(x, p=3):
     # x = [T, tau]
-    return Greybody(x[0], x[1], TauOpacity(x[2]))
+    return Greybody(x[0], x[1], TauOpacity(beta=2.), p=p)
 
 LOG_NAME = "log.log"
 def logger(text):
