@@ -11,7 +11,7 @@ from ..physics import Greybody, TauOpacity, get_instrument
 """
 Test fit_full_image in solve_map.py
 Created 1/28/20, after renaming fit.py to solve_map.py
-Updated 4/9/20, working again 4/10/20
+Updated 4/9/20, working again 4/10/20 (I used this bc I didn't know nextGenSolveTest was there)
 """
 __author__ = "Ramsey Karim"
 

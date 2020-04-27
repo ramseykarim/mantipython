@@ -1,5 +1,5 @@
 import multiprocessing
-
+import numpy as np # # TODO: REMOVE THIS move the stuff into solve
 from . import io_utils
 from . import physics
 from . import solve
@@ -16,7 +16,7 @@ __author__ = "Ramsey Karim"
 def fit_entire_map(data_filenames, bands_to_fit, parameters_to_fit,
     initial_param_vals=None, param_bounds=None, dust='tau', dust_kwargs=None,
     data_directory="", cutout=None, log_name_func=None, n_procs=2,
-    destination_filename=None, fitting_function=None):
+    destination_filename=None, fitting_function=None, grid_sample=False):
     """
     Fit entire Herschel map in several bands.
     :param data_filenames: dictionary mapping integer band wavelength in
@@ -123,7 +123,7 @@ def fit_entire_map(data_filenames, bands_to_fit, parameters_to_fit,
                     ct_slices, ct_size, log_name_func(f"_{proc_idx}"), src_fn,
                     [initial_param_vals[pn] for pn in parameters_to_fit],
                     [param_bounds[pn] for pn in parameters_to_fit],
-                    fitting_function,
+                    fitting_function, grid_sample,
                 ), kwargs=dict(shared_array_dict=result_dict))
             p.start()
             procs.append(p)
@@ -150,9 +150,77 @@ def fit_entire_map(data_filenames, bands_to_fit, parameters_to_fit,
             ct_slices, ct_size, log_name_func(""), src_fn,
             [initial_param_vals[pn] for pn in parameters_to_fit],
             [param_bounds[pn] for pn in parameters_to_fit],
-            fitting_function,
+            fitting_function, grid_sample,
         )[1]
         ########################################
+
+    # Make the new data lookup object for use in both check_and_refit and write_result
+    data_lookup = io_utils.Data(data_filenames, bands_to_fit, prefix=data_directory)
+    data_lookup.map(lambda oe, k: tuple(x[ct_slices] for x in oe))
+    # This would be the place to check for bad fits (spikes, etc)
+    # Check for bad pixels and refit using the function in solve.py
+    solve.check_and_refit(result_dict,
+        *zip(*(data_lookup[k] for k in bands_to_fit)),
+        physics.get_instrument(bands_to_fit), src_fn,
+        [initial_param_vals[pn] for pn in parameters_to_fit],
+        [param_bounds[pn] for pn in parameters_to_fit],
+        log_func=io_utils.make_logger(log_name_func("_0")),
+        fit_pixel_func=fitting_function, grid_sample=grid_sample)
+
+    """
+    #### Stuff from earlier
+    # Get solution and error maps
+    soln = result_dict['solution']
+    err = result_dict['error']
+    # All the parameters should be affected so just use the first one
+    p = 0
+    # Set up a small mask around 1 pixel
+    local_mask = np.ones((3, 3))
+    local_mask[1,1] = 0
+    local_mask = local_mask.astype(bool)
+    # Gather problem pixels
+    problem_pixels = []
+    for i in range(1, soln.shape[1]-1):
+        for j in range(1, soln.shape[2]-1):
+            local_cube = soln[p, i-1:i+2, j-1:j+2]
+            local_err_cube = err[p, i-1:i+2, j-1:j+2]
+            local_err = np.mean(local_err_cube[local_mask])
+            local_val = soln[p, i, j]
+            # Get mean and standard deviation of surrounding pixels
+            local_mean = np.mean(local_cube[local_mask])
+            local_std = np.std(local_cube[local_mask])
+            if np.isnan(local_mean):
+                # Skip it if there are any NaNs, not trustworthy anyway
+                continue
+            local_diff = np.abs(local_val - local_mean)
+            if (local_diff > local_std) & (local_diff > local_err):
+                # Save location, mean surrounding value, and local parameter error
+                problem_pixels.append((i, j, local_mean, local_err))
+    # Sort out the observations and their errors into arrays
+    i_idxs, j_idxs, local_means, local_errs = zip(*problem_pixels)
+    # Fit the problem pixels with tight bounds
+    instr = physics.get_instrument(bands_to_fit)
+    for i, j, local_mean, local_err in problem_pixels:
+        observations, errors = zip(*((arr[i, j] for arr in data_lookup[k]) for k in bands_to_fit))
+        new_init_vals = [initial_param_vals[pn] for pn in parameters_to_fit]
+        new_init_vals[p] = local_mean
+        new_bounds = [param_bounds[pn] for pn in parameters_to_fit]
+        new_bounds[p] = (local_mean - local_err, local_mean + local_err)
+        new_result = fitting_function(observations, errors, instr, src_fn, x0=new_init_vals, bounds=new_bounds)
+        print(new_result.x)
+
+
+        # observations, errors, detectors, src_fn,
+        #     x0=None, bounds=None, **min_kwargs
+
+
+    # solve.fit_array(*zip(*(data_lookup[k] for k in bands_to_fit)),
+    #     physics.get_instrument(bands_to_fit), src_fn,
+    #     init_vals, bounds, log_func=logger, fit_pixel_func=fitting_function,
+    # )
+    """
+    return result_dict
+
 
     # Now both result dictionaries are similar
     if destination_filename is None:
@@ -168,7 +236,7 @@ def fit_entire_map(data_filenames, bands_to_fit, parameters_to_fit,
 
 def run_single_process(proc_idx, n_procs, data_filenames, bands_to_fit,
     directory, cutout_slices, cutout_size, log_name, src_fn, init_vals, bounds,
-    fitting_function, shared_array_dict=None):
+    fitting_function, grid_sample, shared_array_dict=None):
     """
     Either the serialized case of running the fit, or the work of one process
     in the parallel case.
@@ -204,6 +272,7 @@ def run_single_process(proc_idx, n_procs, data_filenames, bands_to_fit,
     result_dict = solve.fit_array(*zip(*(data_lookup[k] for k in bands_to_fit)),
         physics.get_instrument(bands_to_fit), src_fn,
         init_vals, bounds, log_func=logger, fit_pixel_func=fitting_function,
+        grid_sample=grid_sample,
     )
     t1 = io_utils.datetime.datetime.now()
     logger(f"Finished at {t1}\nTook {(t1-t0).total_seconds()/60.} minutes")

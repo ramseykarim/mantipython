@@ -6,6 +6,7 @@ import sys
 Utilities to solve a single map. Assumes the entire map is in the arrays passed to
 fit_full_image. Returns a dictionary containing numpy arrays.
 Created: probably January 25 2020 or something
+Updated with uncertainties on April 10, 2020
 """
 __author__ = "Ramsey Karim"
 
@@ -14,8 +15,8 @@ __author__ = "Ramsey Karim"
 # N, tau are log10
 standard_x0 = {'T': 15, 'N': 22, 'tau': -2, 'beta': 2,
     'T_bg': 15, 'N_bg': 22, 'tau_bg': -2,}
-standard_bounds = {'T': (0, None), 'N': (18, 25), 'tau': (-7, 0), 'beta': (0, 3),
-    'T_bg': (0, None), 'N_bg': (18, 25), 'tau_bg': (-7, 0),}
+standard_bounds = {'T': (5, None), 'N': (18, 25), 'tau': (-7, 0), 'beta': (0, 3),
+    'T_bg': (5, None), 'N_bg': (18, 25), 'tau_bg': (-7, 0),}
 
 # Useful for creating the dictionary to return
 result_frames = {
@@ -193,11 +194,8 @@ def fit_array(observation_maps, error_maps, detectors, src_fn,
     if dof == 0:
         # Cannot explicitly calculate uncertainty; need to sample for it
         grid_sample = True
-        msg = "Grid sample turned on because no degrees of freedom."
         if keeping_track_of_progress:
-            log_func(msg)
-        else:
-            print(msg)
+            log_func("Grid sample turned on because no degrees of freedom.")
     else:
         # Calculating uncertainty via Jacobian matrix (4/10/20)
         # I have compared these two methods and they produce similar results
@@ -263,3 +261,111 @@ def fit_array(observation_maps, error_maps, detectors, src_fn,
         i_shape = result_frames[k](n_params, n_data)
         result_dict[k] = result_dict[k].T.reshape(i_shape, *img_shape)
     return result_dict
+
+
+def check_and_refit(result_dict, observation_maps,
+    error_maps, detectors, src_fn,
+    initial_guess, bounds, log_func=None,
+    fit_pixel_func=fit_pixel_standard, grid_sample=False):
+    """
+    Takes in a completed results dictionary (the entire thing is best,
+    to minimize edge effects) and compares every pixel to its surrounding
+    pixels.
+    Pixels with differences greater than both the surrounding errors and
+    std. of surrounding pixels will be refit with tighter bounds.
+    This procedure should minimize noise spikes that are totally unrealistic.
+    This will only work if unrealistic solutions are few and far between, and
+    are always surrounded by good fits.
+    Does not return anything; modifies result_dict in place
+    """
+    # Pick the first parameter (arbitrary)
+    # If the fit is screwed up, all the parameters should be off, so it doesn't
+    # matter which one we check.
+    p = 0
+    solution = result_dict['solution']
+    perror = result_dict['error']
+    # Set up a small mask around 1 pixel
+    local_mask = np.ones((3, 3))
+    local_mask[1,1] = 0
+    local_mask = local_mask.astype(bool)
+    # Gather problem pixels
+    problem_pixels = []
+    for i in range(1, solution.shape[1]-1):
+        for j in range(1, solution.shape[2]-1):
+            local_cube = solution[p, i-1:i+2, j-1:j+2]
+            local_perror_cube = perror[p, i-1:i+2, j-1:j+2]
+            local_perror = np.mean(local_perror_cube[local_mask])
+            local_solution = solution[p, i, j]
+            # Get mean and standard deviation of surrounding pixels
+            local_mean = np.mean(local_cube[local_mask])
+            local_std = np.std(local_cube[local_mask])
+            if np.isnan(local_mean):
+                # Skip it if there are any NaNs, not trustworthy anyway
+                continue
+            # Check the difference between the pixel and its surroudings
+            # against the surrounding mean error and standard
+            # deviation of values
+            local_diff = np.abs(local_solution - local_mean)
+            # Also mark this pixel if success flag came back False
+            if ((local_diff > local_std) and (local_diff > local_perror)) or (result_dict['success'][0, i, j] == 0):
+                # Save location, mean surrounding value, and local parameter error
+                problem_pixels.append((i, j, local_mean, local_perror))
+    # Iterate through the problem pixels and re-fit
+    for i, j, local_mean, local_perror in problem_pixels:
+        observations = [o[i, j] for o in observation_maps]
+        errors = [e[i, j] for e in error_maps]
+        # Perturb the observations using the errors
+        for idx in range(len(observations)):
+            observations[idx] += errors[idx] * 0.01 * (-1)**idx
+        new_init_guesses = [x for x in initial_guess]
+        new_init_guesses[p] = local_mean
+        new_bounds = [x for x in bounds]
+        new_bounds[p] = (local_mean - local_perror, local_mean + local_perror)
+        new_result = fit_pixel_func(observations, errors, detectors, src_fn,
+            x0=new_init_guesses, bounds=new_bounds)
+        solution[:, i, j] = new_result.x
+        # Other stuff
+        dof = len(observations) - solution.shape[0]
+        solution_src = src_fn(solution[:, i, j], p=solution.shape[0])
+        # Get the model fluxes
+        result_dict['model_flux'][:, i, j] = np.array([d.detect(solution_src) for d in detectors])
+        # Get the model minus observation differences
+        result_dict['diff_flux'][:, i, j] = np.array([m - o for m, o in zip(model_seq[i, :], obs)])
+        # Calculate chi squared
+        if dof != 0:
+            chisq = new_result.fun / dof
+        else:
+            chisq = np.inf
+        result_dict['chisq'][0, i, j] = chisq
+        # Number of iterations INCLUDES PREVIOUS COUNT
+        result_dict['n_iter'][0, i, j] += new_result.nit
+        # Success flag: 2 if successful this time and also "success" last time
+        # 3 if unsuccessful last time and successful this time
+        # -1 if unsuccessful both times
+        # -2 if successful last time and unsuccessful this time
+        # This leaves 0: unsuccessful only once; and 1: successful only once
+        prev_success_flag = result_dict['success'][0, i, j]
+        new_success_flag = float(new_result.success)
+        # Presently, only possibilities for either success flag are 0 or 1
+        if prev_success_flag:
+            if new_success_flag:
+                final_success_flag = 2.0
+            else:
+                final_success_flag = -2.0
+        else:
+            if new_success_flag:
+                final_success_flag = 3.0
+            else:
+                final_success_flag = -1.0
+        # This success flag system basically means: the greater the number,
+        # the better the re-fit. The smaller the number, the worse the re-fit
+        result_dict['success'][0, i, j] = final_success_flag
+        # Uncertainty
+        if grid_sample or (dof == 0) or (final_success_flag < 0):
+            # Also use grid sample if success flag looks bad
+            result_dict['error'][:, i, j] = sample_uncertainty(observations, errors, detectors, src_fn,
+                x0=initial_guess, bounds=bounds, jac=False)
+        else:
+            result_dict['error'][:, i, j] = parameter_error_vector(errors, detectors, solution_src)
+        # 'dog it and log it
+        log_func(f"refit pixel at {i}, {j} with success {final_success_flag:.0f}")
