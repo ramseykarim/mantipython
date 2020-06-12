@@ -160,14 +160,14 @@ def fit_entire_map(data_filenames, bands_to_fit, parameters_to_fit,
     data_lookup.map(lambda oe, k: tuple(x[ct_slices] for x in oe))
 
 
-    # This would be the place to check for bad fits (spikes, etc)
+    # This is the place to check for bad fits (spikes, etc)
     # Check for bad pixels and refit using the function in solve.py
     solve.check_and_refit(result_dict,
         *zip(*(data_lookup[k] for k in bands_to_fit)),
         physics.get_instrument(bands_to_fit), src_fn,
         [initial_param_vals[pn] for pn in parameters_to_fit],
         [param_bounds[pn] for pn in parameters_to_fit],
-        log_func=io_utils.make_logger(log_name_func("_0")),
+        log_func=io_utils.make_logger(log_name_func("_0")), # _0 will already be present from proc_id 0
         fit_pixel_func=fitting_function, grid_sample=grid_sample)
 
     # Finish up and write the FITS file

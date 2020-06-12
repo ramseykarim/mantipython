@@ -310,6 +310,10 @@ def check_and_refit(result_dict, observation_maps,
             if ((local_diff > local_std) and (local_diff > local_perror)) or (result_dict['success'][0, i, j] == 0):
                 # Save location, mean surrounding value, and local parameter error
                 problem_pixels.append((i, j, local_mean, local_perror))
+                ############# DEBUG; remove (or refine) the following log lines
+                log_func(f"## embarking on refitting pixel at {i}, {j};")
+                msg = f"### local_solution({local_solution}) local_diff({local_diff}), local_std({local_std}), local_perror({local_perror}), prev_success_flag({result_dict['success'][0, i, j]})"
+                log_func(msg)
     # Iterate through the problem pixels and re-fit
     for i, j, local_mean, local_perror in problem_pixels:
         observations = [o[i, j] for o in observation_maps]
@@ -330,7 +334,7 @@ def check_and_refit(result_dict, observation_maps,
         # Get the model fluxes
         result_dict['model_flux'][:, i, j] = np.array([d.detect(solution_src) for d in detectors])
         # Get the model minus observation differences
-        result_dict['diff_flux'][:, i, j] = np.array([m - o for m, o in zip(model_seq[i, :], obs)])
+        result_dict['diff_flux'][:, i, j] = np.array([m - o for m, o in zip(result_dict['model_flux'][:, i, j], obs)])
         # Calculate chi squared
         if dof != 0:
             chisq = new_result.fun / dof
