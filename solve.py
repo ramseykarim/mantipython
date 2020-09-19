@@ -319,13 +319,14 @@ def check_and_refit(result_dict, observation_maps,
         observations = [o[i, j] for o in observation_maps]
         errors = [e[i, j] for e in error_maps]
         # Perturb the observations using the errors
+        pert_observations = []
         for idx in range(len(observations)):
-            observations[idx] += errors[idx] * 0.01 * (-1)**idx
+            pert_observations.append(observations[idx] + errors[idx] * 0.01 * (-1)**idx)
         new_init_guesses = [x for x in initial_guess]
         new_init_guesses[p] = local_mean
         new_bounds = [x for x in bounds]
         new_bounds[p] = (local_mean - local_perror, local_mean + local_perror)
-        new_result = fit_pixel_func(observations, errors, detectors, src_fn,
+        new_result = fit_pixel_func(pert_observations, errors, detectors, src_fn,
             x0=new_init_guesses, bounds=new_bounds)
         solution[:, i, j] = new_result.x
         # Other stuff
@@ -334,7 +335,7 @@ def check_and_refit(result_dict, observation_maps,
         # Get the model fluxes
         result_dict['model_flux'][:, i, j] = np.array([d.detect(solution_src) for d in detectors])
         # Get the model minus observation differences
-        result_dict['diff_flux'][:, i, j] = np.array([m - o for m, o in zip(result_dict['model_flux'][:, i, j], obs)])
+        result_dict['diff_flux'][:, i, j] = np.array([m - o for m, o in zip(result_dict['model_flux'][:, i, j], observations)])
         # Calculate chi squared
         if dof != 0:
             chisq = new_result.fun / dof
