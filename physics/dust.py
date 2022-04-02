@@ -57,6 +57,24 @@ class TauOpacity:
         return self._short
 
 
+class ConstantOpacity:
+
+    def __init__(self):
+        self._short = "cst"
+        self._text = "<ConstantOpac:{:s}>".format(self._short)
+
+    def tau(self, nu):
+        return np.ones_like(nu)
+
+    def __call__(self, x):
+        return self.tau(x)
+
+    def __repr__(self):
+        return self._text
+
+    def __str__(self):
+        return self._short
+
 
 # Formal dust, in kappa (cm2/g)
 # This will still work with Greybody (1/20/20)

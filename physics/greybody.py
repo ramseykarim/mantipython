@@ -112,6 +112,82 @@ class Greybody:
         return f"gb({s})"
 
 
+
+class ThinGreybody:
+    """
+    Single component Greybody, but OPTICALLY THIN
+
+    This class was created on March 16, 2021 to allow me to do math with
+    the linear optically thin approximation.
+
+    Most of the class is copied from Greybody. This class does not support
+    any partial derivatives.
+
+    The "optically thin" approximation just means that, instead of using the
+    normalization (C) to do:
+        tau = C * dust.tau
+    and then putting that tau into (1 - exp(-tau)) to multiply against the BB,
+    instead we use C*dust.tau directly in place of (1 - exp(-tau)) and multiply
+    C*dust.tau directly against the BB. If C = 1 and dust.tau = Constant, this
+    "ThinGreybody" can be used to model an optically thick blackbody.
+    Theoretically, you could use dust.tau = dust.ConstantOpacity to bypass
+    the automatic handling of wavelength dependance and put whatever you want
+    as C to be multiplied against the BB
+
+    So really, this isn't necessarily optically thin, it's the "optically thin
+    approximation"
+    """
+    def __init__(self, temperature, normalization, dust_model, p=3):
+        """
+        :param temperature: temperature in K
+        :param normalization: either tau160 or kappa0 depending on the
+            dust model class passed as dust_model. GIVEN IN LOG10!
+        :param dust_model: either TauOpacity or Dust instance, dust model to use
+        :param p: number of parameters, only used if taking derivatives
+        """
+        self.T = temperature*1. # make sure *everything* is a float....
+        # Bug (1/28/20): had a problem with 10**tau vs 10.**tau,
+        #  int infected(?) float and caused np.exp(-tau) to fail.
+        self.normalization = 10.**normalization # arg as LOG10
+        self.dust = dust_model
+        try:
+            assert "Dust" not in repr(self.dust)
+        except:
+            raise RuntimeError("Can't use a kappa model in this ThinGreybody.")
+        # nparams only matters for taking derivatives
+        self.nparams = p
+
+    def tau(self, nu):
+        # Convenience function for calculating optical depth
+        nu = arg_as_array(nu)
+        return self.dust(nu) * self.normalization
+
+    def radiate(self, nu, expntau=None):
+        """
+        Calculate emission in MJy/sr at frequencies given by nu array
+        """
+        source = B(nu, self.T)
+        # Only works with TauOpacity, not kappa
+        # returns a nu-sized array
+        return source * self.tau(nu)
+
+    def dradiate(self, nu):
+        raise NotImplementedError(f"Derivative for ThinGreybody.")
+
+    def __call__(self, x):
+        # Calls radiate by default
+        return self.radiate(x)
+
+    def __repr__(self):
+        s = "({:.1f}K/{:.1E}/{:s})".format(self.T, self.normalization, str(self.dust))
+        return f"<ThinGreybody:{s}>"
+
+    def __str__(self):
+        s = "{:.1f}".format(self.T)
+        return f"tgb({s})"
+
+
+
 class MultiGreybody:
 
     def __init__(self, temperatures, normalizations, dust_models, p=None):

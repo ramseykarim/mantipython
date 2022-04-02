@@ -43,6 +43,16 @@ SPIRE_Omegaeff = {
 
 @valid_wavelength
 def open_bandpass(wl):
+    """
+    (2021/04/01) Worth noting that I copied these from manticore (Kevin Rauch)
+    since they didn't exactly match the ones I found on the SVO filter profile
+    service. However, I just found this website with some profiles:
+    http://archives.esac.esa.int/hsa/legacy/ADP/PACS/PACS-P_filter_curves/
+    but I have not checked which set of profiles they match the best (SVO or
+    Kevin's from manticore)
+    Someday I will want to investigate this so that every piece of data I use
+    has a certified source.
+    """
     # Open the bandpasses I copied from manticore
     data = np.genfromtxt(bandpass_filename(wl))
     nu, weight = data[:, 0], data[:, 1]
