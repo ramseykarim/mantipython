@@ -16,7 +16,8 @@ __author__ = "Ramsey Karim"
 def fit_entire_map(data_filenames, bands_to_fit, parameters_to_fit,
     initial_param_vals=None, param_bounds=None, dust='tau', dust_kwargs=None,
     data_directory="", cutout=None, log_name_func=None, n_procs=2,
-    destination_filename=None, fitting_function=None, grid_sample=False):
+    destination_filename=None, fitting_function=None, grid_sample=False,
+    allow_check_and_refit=True):
     """
     Fit entire Herschel map in several bands.
     :param data_filenames: dictionary mapping integer band wavelength in
@@ -49,6 +50,10 @@ def fit_entire_map(data_filenames, bands_to_fit, parameters_to_fit,
     :param destination_filename: exactly what it sounds like.
         string path to write to.
     :param fitting_function: 'jac' for jacobian, anything else for standard
+    :param allow_check_and_refit: allow the function to check the spatial
+        smoothness of the solution and refit outlier pixels. This behavior is
+        recommended, but turning it off is helpful for debugging a difficult
+        set of observations.
     """
     # BEGINNING SETUP
     # Sanitize list
@@ -160,15 +165,16 @@ def fit_entire_map(data_filenames, bands_to_fit, parameters_to_fit,
     data_lookup.map(lambda oe, k: tuple(x[ct_slices] for x in oe))
 
 
-    # This is the place to check for bad fits (spikes, etc)
-    # Check for bad pixels and refit using the function in solve.py
-    solve.check_and_refit(result_dict,
-        *zip(*(data_lookup[k] for k in bands_to_fit)),
-        physics.get_instrument(bands_to_fit), src_fn,
-        [initial_param_vals[pn] for pn in parameters_to_fit],
-        [param_bounds[pn] for pn in parameters_to_fit],
-        log_func=io_utils.make_logger(log_name_func("_0")), # _0 will already be present from proc_id 0
-        fit_pixel_func=fitting_function, grid_sample=grid_sample)
+    if allow_check_and_refit:
+        # This is the place to check for bad fits (spikes, etc)
+        # Check for bad pixels and refit using the function in solve.py
+        solve.check_and_refit(result_dict,
+            *zip(*(data_lookup[k] for k in bands_to_fit)),
+            physics.get_instrument(bands_to_fit), src_fn,
+            [initial_param_vals[pn] for pn in parameters_to_fit],
+            [param_bounds[pn] for pn in parameters_to_fit],
+            log_func=io_utils.make_logger(log_name_func("_0")), # _0 will already be present from proc_id 0
+            fit_pixel_func=fitting_function, grid_sample=grid_sample)
 
     # Finish up and write the FITS file
     if destination_filename is None:
